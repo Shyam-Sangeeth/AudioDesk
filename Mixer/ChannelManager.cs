@@ -162,11 +162,23 @@ public sealed class ChannelManager : IDisposable
 
     public List<DeviceChoice> Choices(Channel channel)
     {
-        var choices = _audio.GetDevices(FlowOf(channel)).Select(d => new DeviceChoice(d.Id, d.Name, d.Format)).ToList();
+        var devices = _audio.GetDevices(FlowOf(channel));
 
+        // NVIDIA Broadcast's virtual speakers are for voice: offer them on Chat only. (Its mic is a recording
+        // device, so it only ever appears on Mic anyway.)
+        var choices = devices
+            .Where(d => channel is Channel.Chat or Channel.Mic || !IsBroadcast(d))
+            .Select(d => new DeviceChoice(d.Id, d.Name, d.Format))
+            .ToList();
+
+        // Keep the current device visible even when it's filtered out (e.g. Broadcast made itself the Windows
+        // default, so Game is on it) or missing, so the picker never looks empty.
         string? current = DeviceId(channel);
         if (current != null && choices.All(c => c.Id != current))
-            choices.Add(new DeviceChoice(current, "Unavailable device"));
+        {
+            var device = devices.FirstOrDefault(d => d.Id == current);
+            choices.Add(device != null ? new DeviceChoice(device.Id, device.Name, device.Format) : new DeviceChoice(current, "Unavailable device"));
+        }
         return choices;
     }
 
@@ -249,7 +261,7 @@ public sealed class ChannelManager : IDisposable
     /// <summary>Real playback devices a profile can use (no virtual devices, no Broadcast).</summary>
     public List<DeviceChoice> ProfileChoices() =>
         _audio.GetDevices(DataFlow.Render)
-            .Where(d => !d.IsVirtual && !d.Name.Contains("NVIDIA Broadcast", StringComparison.OrdinalIgnoreCase))
+            .Where(d => !d.IsVirtual && !IsBroadcast(d))
             .Select(d => new DeviceChoice(d.Id, d.Name, d.Format))
             .ToList();
 
@@ -474,12 +486,15 @@ public sealed class ChannelManager : IDisposable
 
     // --- Noise removal (NVIDIA Broadcast) for Chat and Mic ---
 
+    private static bool IsBroadcast(DeviceInfo device) =>
+        device.Name.Contains("NVIDIA Broadcast", StringComparison.OrdinalIgnoreCase);
+
     public static bool SupportsNoiseRemoval(Channel channel) => channel is Channel.Chat or Channel.Mic;
 
     /// <summary>Broadcast's virtual speakers (for Chat) or microphone (for Mic), if Broadcast is installed.</summary>
     public string? BroadcastDeviceId(Channel channel) =>
         SupportsNoiseRemoval(channel)
-            ? _audio.GetDevices(FlowOf(channel)).FirstOrDefault(d => d.Name.Contains("NVIDIA Broadcast", StringComparison.OrdinalIgnoreCase))?.Id
+            ? _audio.GetDevices(FlowOf(channel)).FirstOrDefault(IsBroadcast)?.Id
             : null;
 
     public bool IsNoiseRemovalOn(Channel channel)
