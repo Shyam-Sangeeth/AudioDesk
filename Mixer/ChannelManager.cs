@@ -466,9 +466,17 @@ public sealed class ChannelManager : IDisposable
                                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>Keep-awake noise is playing on this device right now (on, used by a channel, and not failing).</summary>
-    public bool IsKeepAwakePlaying(string? deviceId) =>
-        deviceId != null && ActiveKeepAwake().ContainsKey(deviceId) && KeepAwakeError(deviceId) == null;
+    private readonly HashSet<string> _noisePlaying = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Keep-awake noise is audibly playing on this device right now (not paused for other audio).</summary>
+    public bool IsKeepAwakePlaying(string? deviceId) => deviceId != null && _noisePlaying.Contains(deviceId);
+
+    /// <summary>Reported by the keep-awake service when the noise on a device starts, pauses or stops.</summary>
+    public void SetNoisePlaying(string deviceId, bool playing)
+    {
+        bool changed = playing ? _noisePlaying.Add(deviceId) : _noisePlaying.Remove(deviceId);
+        if (changed) StateChanged?.Invoke();
+    }
 
     /// <summary>Keep awake is on for this device, but no channel uses it, so no noise is playing.</summary>
     public bool IsKeepAwakePaused(string deviceId) => IsKeepAwake(deviceId) && !UsedOutputDevices().Contains(deviceId);

@@ -28,7 +28,7 @@ public sealed record NoiseLevel(double Db, string Label)
 }
 
 public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false, double keepAwakeDb = ChannelManager.DefaultKeepAwakeDb,
-                               string? keepAwakeError = null, bool keepAwakePaused = false)
+                               string? keepAwakeError = null, bool keepAwakePaused = false, bool keepAwakePlaying = false)
 {
     public DeviceInfo Info => info;
     public bool KeepAwake => keepAwake;
@@ -36,8 +36,8 @@ public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false, double k
     /// <summary>Keep awake is on, but no channel uses this device, so no noise is playing.</summary>
     public bool KeepAwakePaused => keepAwakePaused;
 
-    /// <summary>Keep-awake noise is playing on this device right now.</summary>
-    public bool KeepAwakePlaying => keepAwake && !keepAwakePaused && string.IsNullOrEmpty(keepAwakeError);
+    /// <summary>Keep-awake noise is audibly playing on this device right now (not paused for other audio).</summary>
+    public bool KeepAwakePlaying => keepAwakePlaying;
     public double KeepAwakeDb => keepAwakeDb;
     public string? KeepAwakeError => keepAwakeError;
     public bool HasKeepAwakeError => !string.IsNullOrEmpty(keepAwakeError);

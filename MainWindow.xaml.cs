@@ -97,14 +97,15 @@ public partial class MainWindow : Window
     {
         var items = devices.OrderByDescending(d => d.IsDefault)
             .Select(d => new DeviceItem(d, _mixer.IsKeepAwake(d.Id), _mixer.KeepAwakeLevel(d.Id), _mixer.KeepAwakeError(d.Id),
-                                        _mixer.IsKeepAwakePaused(d.Id)))
+                                        _mixer.IsKeepAwakePaused(d.Id), _mixer.IsKeepAwakePlaying(d.Id)))
             .ToList();
         // Skip rebuilding the list (and redrawing the Devices tab) when nothing changed.
         if (target.Count == items.Count && target.Zip(items).All(p => p.First.Info == p.Second.Info &&
                                                                       p.First.KeepAwake == p.Second.KeepAwake &&
                                                                       p.First.KeepAwakeDb == p.Second.KeepAwakeDb &&
                                                                       p.First.KeepAwakeError == p.Second.KeepAwakeError &&
-                                                                      p.First.KeepAwakePaused == p.Second.KeepAwakePaused))
+                                                                      p.First.KeepAwakePaused == p.Second.KeepAwakePaused &&
+                                                                      p.First.KeepAwakePlaying == p.Second.KeepAwakePlaying))
             return;
         target.Clear();
         foreach (var item in items) target.Add(item);

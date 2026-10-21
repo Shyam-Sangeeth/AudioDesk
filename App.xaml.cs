@@ -99,6 +99,7 @@ public partial class App : Application
         // a channel uses them; re-checked whenever channels, profiles or devices change.
         _keepAwake = new KeepAwakeService();
         _keepAwake.StatusChanged += (id, error) => Dispatcher.BeginInvoke(() => _mixer?.SetKeepAwakeError(id, error));
+        _keepAwake.NoiseChanged += (id, playing) => Dispatcher.BeginInvoke(() => _mixer?.SetNoisePlaying(id, playing));
         _mixer.KeepAwakeChanged += ApplyKeepAwake;
         _mixer.StateChanged += ApplyKeepAwake;
         ApplyKeepAwake();

@@ -226,11 +226,13 @@ Many receivers and soundbars, especially on optical (S/PDIF) or HDMI, go to slee
 When sound starts again they need a moment to lock back on, so the first second gets cut off, e.g. after you
 pause a video for a while and press play.
 
-**Keep device awake** fixes this by playing very quiet white noise to the device, so the signal never stops.
-Turn it on with the **Keep awake** checkbox on the [Devices tab](#devices-tab), and pick the level next to it.
+**Keep device awake** fixes this by playing very quiet white noise to the device whenever nothing else is
+playing, so the signal never stops. While another app plays on the device its audio keeps the receiver awake, so
+the noise pauses; it resumes within about half a second of the device going quiet. Turn it on with the
+**Keep awake** checkbox on the [Devices tab](#devices-tab), and pick the level next to it.
 
-While the noise is playing, a small green wave (∿) appears after the device's format, both on the channels that
-use it and on the Devices tab.
+A small green wave (∿) after the device's format shows when the noise is actually playing, on the channels that
+use the device and on the Devices tab.
 
 The noise only plays while a channel (Game, Chat, Media or Aux) is using the device. With the Headset profile
 active, a kept-awake home theater gets no noise; switch to Home Theater and it starts automatically. While it's

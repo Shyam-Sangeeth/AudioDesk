@@ -1,23 +1,76 @@
 using System.Runtime.InteropServices;
 using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 using NAudio.Wave;
 
 namespace AudioDesk.Audio;
 
 /// <summary>
-/// Keeps chosen playback devices awake by playing very quiet white noise to them all the time.
-/// Receivers and soundbars (especially over optical/HDMI) go to sleep when the signal stops and need
-/// a moment to wake up, which cuts off the start of the next sound. A continuous stream keeps them locked.
+/// Keeps chosen playback devices awake by playing very quiet white noise to them whenever nothing else is
+/// playing. Receivers and soundbars (especially over optical/HDMI) go to sleep when the signal stops and need
+/// a moment to wake up, which cuts off the start of the next sound. While another app plays on the device
+/// its audio keeps the receiver awake, so the noise pauses and resumes as soon as the device goes quiet.
 /// </summary>
 public sealed class KeepAwakeService : IDisposable
 {
     private readonly object _lock = new();
     private readonly Dictionary<string, Player> _players = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, double> _wanted = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Timer _monitor;
     private bool _disposed;
+
+    public KeepAwakeService()
+    {
+        // Twice a second: pause the noise while other audio plays, resume it when the device goes quiet.
+        _monitor = new Timer(_ => PauseWhileOthersPlay(), null, 500, 500);
+    }
 
     /// <summary>Raised on a worker thread: device id and an error message, or null once it plays fine.</summary>
     public event Action<string, string?>? StatusChanged;
+
+    /// <summary>Raised on a worker thread when the noise on a device starts (true) or stops/pauses (false).</summary>
+    public event Action<string, bool>? NoiseChanged;
+
+    private void PauseWhileOthersPlay()
+    {
+        lock (_lock)
+        {
+            if (_disposed) return;
+            foreach (var (id, player) in _players)
+            {
+                bool othersPlaying;
+                try { othersPlaying = OthersPlaying(id); }
+                catch { continue; } // device restarting; check again next time
+
+                if (othersPlaying && !player.IsPaused)
+                {
+                    player.Pause();
+                    NoiseChanged?.Invoke(id, false);
+                }
+                else if (!othersPlaying && player.IsPaused)
+                {
+                    player.Resume();
+                    NoiseChanged?.Invoke(id, true);
+                }
+            }
+        }
+    }
+
+    /// <summary>True when any app other than AudioDesk has an active stream on the device.</summary>
+    private static bool OthersPlaying(string deviceId)
+    {
+        using var enumerator = new MMDeviceEnumerator();
+        using var device = enumerator.GetDevice(deviceId);
+        var sessions = device.AudioSessionManager.Sessions;
+        uint self = (uint)Environment.ProcessId;
+        for (int i = 0; i < sessions.Count; i++)
+        {
+            var session = sessions[i];
+            if (session.GetProcessID != self && session.State == AudioSessionState.AudioSessionStateActive)
+                return true;
+        }
+        return false;
+    }
 
     /// <summary>Plays noise on exactly these devices (device id → level in dBFS).</summary>
     public void Apply(IReadOnlyDictionary<string, double> devices)
@@ -41,6 +94,7 @@ public sealed class KeepAwakeService : IDisposable
                 {
                     _players[id].Dispose();
                     _players.Remove(id);
+                    NoiseChanged?.Invoke(id, false);
                 }
             }
 
@@ -59,6 +113,11 @@ public sealed class KeepAwakeService : IDisposable
                     {
                         _players[id] = started;
                         StatusChanged?.Invoke(id, null);
+                        // Don't add noise on top of audio that's already playing; the monitor resumes it later.
+                        bool othersPlaying;
+                        try { othersPlaying = OthersPlaying(id); } catch { othersPlaying = false; }
+                        if (othersPlaying) started.Pause();
+                        NoiseChanged?.Invoke(id, !othersPlaying);
                     }
                 }
                 catch (Exception ex)
@@ -76,6 +135,7 @@ public sealed class KeepAwakeService : IDisposable
 
     public void Dispose()
     {
+        _monitor.Dispose();
         lock (_lock)
         {
             _disposed = true;
@@ -99,11 +159,27 @@ public sealed class KeepAwakeService : IDisposable
             _noise = noise;
         }
 
+        /// <summary>The stream is alive (paused counts as alive); false once the device stopped it.</summary>
         public bool IsPlaying => !_stopped;
+
+        /// <summary>Paused because another app is playing on the device.</summary>
+        public bool IsPaused { get; private set; }
 
         public float Amplitude
         {
             set => _noise.Amplitude = value;
+        }
+
+        public void Pause()
+        {
+            _output.Pause();
+            IsPaused = true;
+        }
+
+        public void Resume()
+        {
+            _output.Play();
+            IsPaused = false;
         }
 
         /// <summary>Starts the noise stream, or returns null when the device isn't connected right now.</summary>
