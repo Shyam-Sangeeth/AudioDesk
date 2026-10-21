@@ -26,7 +26,6 @@ public partial class App : Application
     private MeterService? _meters;
     private UpdateViewModel? _updates;
     private OsdWindow? _osd;
-    private bool _hintShown;
     private bool _exiting;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -115,11 +114,6 @@ public partial class App : Application
             if (_exiting) return;
             args.Cancel = true;
             _window.Hide();
-            if (!_hintShown)
-            {
-                _hintShown = true;
-                _tray.ShowHint("AudioDesk is still running", "It keeps your channels working. Right-click the tray icon to change devices, or choose Exit.");
-            }
         };
 
         _osd = new OsdWindow();
