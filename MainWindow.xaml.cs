@@ -221,6 +221,9 @@ public partial class MainWindow : Window
         _loadingSettings = true;
         try { StartWithWindowsBox.IsChecked = StartupSetting.Enabled; }
         finally { _loadingSettings = false; }
+
+        var version = typeof(MainWindow).Assembly.GetName().Version;
+        VersionText.Text = version == null ? "AudioDesk" : $"AudioDesk {version.Major}.{version.Minor}.{version.Build}";
     }
 
     private void StartWithWindows_Changed(object sender, RoutedEventArgs e)

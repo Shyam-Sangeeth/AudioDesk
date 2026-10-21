@@ -9,11 +9,17 @@
     <!-- Only for the tray icon (NotifyIcon). -->
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>AudioDesk</AssemblyName>
+    <!-- App and installer version (installer\build-installer.ps1 can override it). -->
+    <Version>1.0.0</Version>
+    <Product>AudioDesk</Product>
+    <Company>Shyam Sangeeth</Company>
     <RootNamespace>AudioDesk</RootNamespace>
     <!-- WPF Fluent theme (ThemeMode) is still marked experimental. -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
     <!-- Explorer, taskbar and Start icon. Regenerate with Assets\make-icons.ps1. -->
     <ApplicationIcon>Assets\AudioDesk.ico</ApplicationIcon>
+    <!-- Keep build outputs and the installer project out of the app project. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);installer\**;publish\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

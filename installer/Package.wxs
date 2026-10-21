@@ -1,0 +1,138 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <!-- Per-user install (no admin prompt) into %LocalAppData%\Programs\AudioDesk, with a Start menu shortcut
+       and an entry in Settings > Apps. The app is self-contained, so .NET doesn't need to be installed. -->
+  <Package Name="AudioDesk"
+           Manufacturer="Shyam Sangeeth"
+           Version="$(var.Version)"
+           UpgradeCode="8876D838-1097-4A71-867D-2D8459EEA91E"
+           Scope="perUser"
+           Compressed="yes">
+
+    <SummaryInformation Description="AudioDesk: Sonar-style audio channels for Windows" />
+
+    <!-- Installing a newer version replaces the old one; settings in %AppData%\AudioDesk are kept. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of AudioDesk is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AudioDeskIcon" SourceFile="$(var.AssetsDir)\AudioDesk.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AudioDeskIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/Shyam-Sangeeth/AudioDesk" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="AudioDesk" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Everything dotnet publish produced. -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PayloadDir)\**" />
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Component Id="StartMenuShortcut">
+        <Shortcut Id="AudioDeskShortcut" Name="AudioDesk" Description="Sonar-style audio channels for Windows"
+                  Target="[INSTALLFOLDER]AudioDesk.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKCU" Key="Software\AudioDesk\Installer" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
+
+    <!-- Remove the (then empty) install folders on uninstall. -->
+    <Component Id="CleanUpFolders" Directory="INSTALLFOLDER">
+      <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+      <RemoveFolder Id="RemoveProgramsFolder" Directory="ProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\AudioDesk\Installer" Name="InstallFolder" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="Main" Title="AudioDesk">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="CleanUpFolders" />
+    </Feature>
+
+    <!-- Close a running AudioDesk before its files are replaced or removed (upgrade/uninstall). Ignored when
+         it isn't installed or running. -->
+    <CustomAction Id="CloseRunningApp" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]AudioDesk.exe&quot; --exit" Execute="immediate" Return="ignore" />
+
+    <!-- On a real uninstall (not an upgrade), remove the Start with Windows entry so it doesn't point at a
+         missing file. -->
+    <CustomAction Id="RemoveStartupEntry" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]AudioDesk.exe&quot; --remove-startup" Execute="immediate" Return="ignore" />
+
+    <!-- Start AudioDesk when the install or upgrade finishes. -->
+    <CustomAction Id="LaunchApp" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]AudioDesk.exe&quot;" Execute="immediate" Return="asyncNoWait" />
+
+    <!-- "Start AudioDesk when Windows starts" checkbox. Ticked for new installs; on an upgrade it follows the
+         current setting (the existing Start with Windows entry), so turning it off earlier isn't undone. -->
+    <Property Id="EXISTINGSTARTUP">
+      <RegistrySearch Id="FindStartupEntry" Root="HKCU" Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                      Name="AudioDesk" Type="raw" />
+    </Property>
+    <SetProperty Id="STARTWITHWINDOWS" Value="1" After="AppSearch" Sequence="both"
+                 Condition="EXISTINGSTARTUP OR NOT WIX_UPGRADE_DETECTED" />
+
+    <CustomAction Id="AddStartupEntry" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]AudioDesk.exe&quot; --add-startup" Execute="immediate" Return="ignore" />
+    <CustomAction Id="ClearStartupEntry" Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]AudioDesk.exe&quot; --remove-startup" Execute="immediate" Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="CloseRunningApp" Before="InstallValidate" Condition="Installed OR WIX_UPGRADE_DETECTED" />
+      <Custom Action="RemoveStartupEntry" Before="RemoveFiles" Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="AddStartupEntry" After="InstallFinalize" Condition="NOT REMOVE AND STARTWITHWINDOWS" />
+      <Custom Action="ClearStartupEntry" After="AddStartupEntry" Condition="NOT REMOVE AND NOT STARTWITHWINDOWS" />
+      <Custom Action="LaunchApp" After="ClearStartupEntry" Condition="NOT Installed AND NOT REMOVE" />
+    </InstallExecuteSequence>
+
+    <!-- Installer window: a welcome screen with the startup checkbox, then the standard progress and finish
+         screens from the WiX UI extension. -->
+    <UI Id="AudioDeskUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+
+      <Dialog Id="AudioDeskWelcomeDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" TabSkip="no" Text="!(loc.WelcomeDlgBitmap)" />
+        <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="40" Transparent="yes" NoPrefix="yes"
+                 Text="{\WixUI_Font_Bigger}Welcome to AudioDesk Setup" />
+        <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="70" Transparent="yes" NoPrefix="yes"
+                 Text="AudioDesk gives every app its own channel (Game, Chat, Media, Aux, Mic) and plays it straight on a real device at full quality.&#13;&#10;&#13;&#10;Click Install to install AudioDesk [ProductVersion] for your account." />
+        <Control Id="StartWithWindows" Type="CheckBox" X="135" Y="160" Width="220" Height="17"
+                 Property="STARTWITHWINDOWS" CheckBoxValue="1" Text="Start AudioDesk when Windows starts" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Install" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="Install">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+      </Dialog>
+
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+
+      <InstallUISequence>
+        <Show Dialog="AudioDeskWelcomeDlg" Before="ProgressDlg" Condition="NOT Installed" />
+      </InstallUISequence>
+    </UI>
+    <UIRef Id="WixUI_Common" />
+
+    <!-- AudioDesk artwork for the installer screens (rendered by make-installer-art.ps1). -->
+    <WixVariable Id="WixUIDialogBmp" Value="$(sys.SOURCEFILEDIR)dialog.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="$(sys.SOURCEFILEDIR)banner.bmp" />
+
+  </Package>
+</Wix>

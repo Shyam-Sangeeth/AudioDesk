@@ -12,6 +12,7 @@ public partial class App : Application
 {
     private const string InstanceName = "AudioDesk.SingleInstance";
     private const string ShowEventName = "AudioDesk.ShowWindow";
+    private const string ExitEventName = "AudioDesk.Exit";
 
     private Mutex? _instanceMutex;
     private EventWaitHandle? _showEvent;
@@ -42,6 +43,19 @@ public partial class App : Application
             return;
         }
 
+        // Used by the installer: --exit closes a running AudioDesk (before an upgrade or uninstall),
+        // --add-startup / --remove-startup set the Start with Windows entry (installer checkbox, uninstall).
+        if (e.Args.Contains("--exit") || e.Args.Contains("--add-startup") || e.Args.Contains("--remove-startup"))
+        {
+            if (e.Args.Contains("--add-startup") || e.Args.Contains("--remove-startup"))
+            {
+                try { StartupSetting.Enabled = e.Args.Contains("--add-startup"); } catch { }
+            }
+            if (e.Args.Contains("--exit")) CloseRunningInstance();
+            Shutdown();
+            return;
+        }
+
         // Second launch: ask the running copy to show its window, then quit.
         _instanceMutex = new Mutex(true, InstanceName, out bool isFirst);
         if (!isFirst)
@@ -55,6 +69,12 @@ public partial class App : Application
         {
             while (_showEvent.WaitOne())
                 Dispatcher.BeginInvoke(ShowWindow);
+        }) { IsBackground = true }.Start();
+        var exitEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ExitEventName);
+        new Thread(() =>
+        {
+            exitEvent.WaitOne();
+            Dispatcher.BeginInvoke(ExitApp);
         }) { IsBackground = true }.Start();
 
         _audio = new AudioService();
@@ -204,6 +224,27 @@ public partial class App : Application
         if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
         _window.Activate();
         _mixer?.Refresh();
+    }
+
+    /// <summary>Asks a running AudioDesk to exit and waits (up to 10 s) until it has.</summary>
+    private static void CloseRunningInstance()
+    {
+        try
+        {
+            EventWaitHandle.OpenExisting(ExitEventName).Set();
+        }
+        catch
+        {
+            return; // not running
+        }
+
+        try
+        {
+            using var mutex = Mutex.OpenExisting(InstanceName);
+            if (mutex.WaitOne(TimeSpan.FromSeconds(10))) mutex.ReleaseMutex();
+        }
+        catch (AbandonedMutexException) { }
+        catch (WaitHandleCannotBeOpenedException) { } // already gone
     }
 
     private void ExitApp()

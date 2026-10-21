@@ -82,17 +82,28 @@ interface, profiles, ChatMix and shortcuts.
 ## Requirements
 
 - **Windows 11**, or Windows 10 version 21H2 or later (per-app routing needs 21H2+).
-- **.NET 10 Desktop Runtime** (included if you have the .NET 10 SDK).
+- Nothing else when you use the installer (it includes .NET). To build from source: the **.NET 10 SDK**.
 - Optional: **NVIDIA Broadcast** (RTX GPUs) for noise removal on Chat and Mic.
 
 AudioDesk doesn't need administrator rights and doesn't install drivers.
 
 ## Installing and running
 
-1. Build it (see [Building from source](#building-from-source)), or use an existing build.
-2. Run `publish\AudioDesk.exe`.
-3. To start it automatically: **Settings** tab → **Start with Windows**. It then starts minimised to the tray at
-   sign-in.
+**With the installer (recommended):** run `AudioDesk-<version>-x64.msi`
+(see [Building the installer](#building-the-installer)).
+
+- Installs for your account only, so there's no admin prompt, into `%LocalAppData%\Programs\AudioDesk`.
+- Adds a Start menu shortcut and an entry in **Settings → Apps** (for uninstalling).
+- The welcome screen has **"Start AudioDesk when Windows starts"**: ticked for new installs; when upgrading it
+  keeps your current choice.
+- Starts AudioDesk when it finishes.
+- **Upgrading:** run a newer installer. It closes AudioDesk, replaces it and starts it again; your settings stay.
+- **Uninstalling** (Settings → Apps → AudioDesk) closes AudioDesk and removes its Start with Windows entry.
+  Your settings file (`%AppData%\AudioDesk`) is kept in case you reinstall.
+
+**Without installing:** build it (see [Building from source](#building-from-source)) and run
+`publish\AudioDesk.exe`. To start it automatically: **Settings** tab → **Start with Windows**; it then starts
+minimised to the tray at sign-in.
 
 Only one copy runs at a time. Launching it again brings the existing window to the front.
 
@@ -372,6 +383,8 @@ mixer → Reset*.
 |---|---|
 | `--minimized` | Start in the tray without opening the window (used by *Start with Windows*). |
 | `--selftest [file]` | Headless check: lists devices with formats and apps with their routing, and tests per-app routing on AudioDesk's own process. Writes a report to `file` (default `%TEMP%\AudioDesk-selftest.txt`) and exits. |
+| `--exit` | Closes a running AudioDesk and waits until it has exited (used by the installer). |
+| `--add-startup` / `--remove-startup` | Turns Start with Windows on/off for this copy of AudioDesk, then exits (used by the installer). |
 
 ## Troubleshooting
 
@@ -419,6 +432,19 @@ powershell -ExecutionPolicy Bypass -File Assets\make-icons.ps1
 
 Dependencies: [NAudio.Wasapi](https://github.com/naudio/NAudio) 2.2.1 for Core Audio access.
 
+### Building the installer
+
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1              # version from AudioDesk.csproj
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1 -Version 1.1.0
+```
+
+This publishes a self-contained build (so .NET doesn't need to be installed) into `installer\payload` and packages
+it with [WiX Toolset](https://wixtoolset.org/) 5 (pulled in automatically from NuGet) as
+`installer\out\AudioDesk-<version>-x64.msi` (about 56 MB). Bump `<Version>` in `AudioDesk.csproj` for each
+release so upgrades replace the previous version. The installer's artwork is rendered by
+`installer\make-installer-art.ps1`.
+
 ## Project structure
 
 ```
@@ -441,5 +467,6 @@ AudioDesk/
 │  ├─ ChannelManager.cs     Channels, routing enforcement, profiles, ChatMix, noise removal, settings file
 │  └─ Hotkey.cs             Shortcut model and storage format
 ├─ Assets/                  Logo (SVG, PNG), AudioDesk.ico, make-icons.ps1
+├─ installer/               WiX installer: Package.wxs, build-installer.ps1, artwork (make-installer-art.ps1)
 └─ docs/screenshots/        Images used in this README
 ```

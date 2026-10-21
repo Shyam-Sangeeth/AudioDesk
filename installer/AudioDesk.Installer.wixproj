@@ -1,0 +1,21 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!-- Builds AudioDesk-<version>-x64.msi. Use build-installer.ps1, which publishes the app into
+       payload\ first and passes the version through. -->
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">1.0.0</Version>
+    <PayloadDir Condition="'$(PayloadDir)' == ''">$(MSBuildThisFileDirectory)payload</PayloadDir>
+    <OutputName>AudioDesk-$(Version)-x64</OutputName>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <DefineConstants>Version=$(Version);PayloadDir=$(PayloadDir);AssetsDir=$(MSBuildThisFileDirectory)..\Assets</DefineConstants>
+    <!-- Per-user install into %LocalAppData%: these ICEs expect per-machine conventions (HKCU key paths,
+         RemoveFolder for every per-user directory) that don't apply to the harvested app files. -->
+    <SuppressIces>ICE38;ICE64;ICE91</SuppressIces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Standard installer dialogs (progress, finish, cancel, errors) used by the custom welcome screen. -->
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+</Project>
