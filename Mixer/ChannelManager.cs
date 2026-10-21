@@ -44,6 +44,9 @@ public sealed class MixerConfig
 
     /// <summary>Global shortcuts for the profile actions.</summary>
     public Dictionary<HotkeyAction, string> ProfileHotkeys { get; set; } = [];
+
+    /// <summary>Playback devices kept awake with quiet noise: device id → noise level in dBFS.</summary>
+    public Dictionary<string, double> KeepAwake { get; set; } = [];
 }
 
 public sealed record MixerApp(
@@ -100,6 +103,7 @@ public sealed class ChannelManager : IDisposable
         foreach (var settings in _config.Channels.Values)
             settings.Hotkeys ??= [];
         _config.ProfileHotkeys ??= [];
+        _config.KeepAwake = new Dictionary<string, double>(_config.KeepAwake ?? [], StringComparer.OrdinalIgnoreCase);
 
         // New apps and other tools re-routing apps are picked up on the next poll.
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
@@ -393,6 +397,47 @@ public sealed class ChannelManager : IDisposable
             _hotkeyErrors[slot] = message;
         StateChanged?.Invoke();
     }
+
+    // --- Keep awake (quiet noise so receivers don't fall asleep) ---
+
+    public const double DefaultKeepAwakeDb = -80;
+
+    private readonly Dictionary<string, string> _keepAwakeErrors = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Raised when the set of kept-awake devices or their levels change.</summary>
+    public event Action? KeepAwakeChanged;
+
+    public IReadOnlyDictionary<string, double> KeepAwakeDevices => _config.KeepAwake;
+
+    public bool IsKeepAwake(string deviceId) => _config.KeepAwake.ContainsKey(deviceId);
+
+    public double KeepAwakeLevel(string deviceId) =>
+        _config.KeepAwake.TryGetValue(deviceId, out var db) ? db : DefaultKeepAwakeDb;
+
+    public void SetKeepAwake(string deviceId, bool on, double? levelDb = null)
+    {
+        if (on) _config.KeepAwake[deviceId] = levelDb ?? KeepAwakeLevel(deviceId);
+        else _config.KeepAwake.Remove(deviceId);
+        _keepAwakeErrors.Remove(deviceId);
+        Save();
+        KeepAwakeChanged?.Invoke();
+        StateChanged?.Invoke();
+    }
+
+    public string? KeepAwakeError(string deviceId) => _keepAwakeErrors.GetValueOrDefault(deviceId);
+
+    public void SetKeepAwakeError(string deviceId, string? message)
+    {
+        bool changed = message == null
+            ? _keepAwakeErrors.Remove(deviceId)
+            : _keepAwakeErrors.GetValueOrDefault(deviceId) != message;
+        if (!changed) return;
+        if (message != null) _keepAwakeErrors[deviceId] = message;
+        StateChanged?.Invoke();
+    }
+
+    /// <summary>The real device an output channel plays on ("same as Game" resolved); null for Mic.</summary>
+    public string? OutputDeviceId(Channel channel) => channel == Channel.Mic ? null : EffectiveDeviceId(channel);
 
     // --- Noise removal (NVIDIA Broadcast) for Chat and Mic ---
 

@@ -126,6 +126,26 @@
                                         </StackPanel>
                                     </CheckBox>
 
+                                    <!-- Keep awake: quiet noise so receivers/soundbars don't sleep and clip the start of sounds. -->
+                                    <StackPanel Margin="0,16,0,0"
+                                                Visibility="{Binding KeepAwakeAvailable, Converter={StaticResource BoolToVisibility}}">
+                                        <CheckBox IsChecked="{Binding KeepAwake, Mode=TwoWay}">
+                                            <StackPanel>
+                                                <TextBlock Text="Keep device awake" />
+                                                <TextBlock FontSize="11" TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
+                                                           Text="Plays very quiet noise so a receiver or soundbar never sleeps and doesn't cut off the start of sounds." />
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <ComboBox Margin="28,6,0,0" HorizontalAlignment="Stretch" IsEnabled="{Binding KeepAwake}"
+                                                  ItemsSource="{Binding NoiseLevels}" DisplayMemberPath="Label" SelectedValuePath="Db"
+                                                  SelectedValue="{Binding KeepAwakeDb, Mode=TwoWay}" />
+                                        <TextBlock Margin="28,4,0,0" FontSize="11" TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
+                                                   Text="While on, players that need the device exclusively (bitstream passthrough) can't use it." />
+                                        <TextBlock Margin="28,4,0,0" FontSize="11" TextWrapping="Wrap" Text="{Binding KeepAwakeError}"
+                                                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                                                   Visibility="{Binding HasKeepAwakeError, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+
                                     <!-- Global shortcuts: click a box, then press the keys. Esc cancels, Backspace clears. -->
                                     <TextBlock Text="Shortcuts" FontSize="12" Margin="0,16,0,6" Style="{StaticResource SecondaryText}" />
                                     <ItemsControl ItemsSource="{Binding Shortcuts}" ItemTemplate="{StaticResource ShortcutRow}" />
@@ -225,6 +245,10 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <CheckBox Content="Keep awake" Margin="0,0,16,0" VerticalAlignment="Center" Tag="{Binding}"
+                                  IsChecked="{Binding KeepAwake, Mode=OneWay}" Checked="KeepAwake_Changed" Unchecked="KeepAwake_Changed"
+                                  ToolTip="Play very quiet noise so this device never sleeps (stops receivers cutting off the start of sounds)."
+                                  Visibility="{Binding IsPlayback, Converter={StaticResource BoolToVisibility}}" />
                         <Button Content="Use for calls" Margin="0,0,8,0" Tag="{Binding}" Click="MakeCommunications_Click"
                                 Visibility="{Binding CanMakeCommunications, Converter={StaticResource BoolToVisibility}}" />
                         <Button Content="Make default" Tag="{Binding}" Click="MakeDefault_Click"

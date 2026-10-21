@@ -21,6 +21,7 @@ public partial class App : Application
     private MainWindow? _window;
     private DispatcherTimer? _debounce;
     private HotkeyService? _hotkeys;
+    private KeepAwakeService? _keepAwake;
     private OsdWindow? _osd;
     private bool _hintShown;
 
@@ -65,6 +66,7 @@ public partial class App : Application
             _debounce.Stop();
             _mixer.Refresh();
             _tray?.UpdateTooltip();
+            _keepAwake?.DevicesChanged();
         };
         _audio.DevicesChanged += () => Dispatcher.BeginInvoke(() =>
         {
@@ -90,6 +92,12 @@ public partial class App : Application
         _osd = new OsdWindow();
         _hotkeys = new HotkeyService();
         _mixer.HotkeysChanged += RegisterHotkeys;
+
+        // Quiet noise on devices that must not fall asleep (e.g. a soundbar on optical).
+        _keepAwake = new KeepAwakeService();
+        _keepAwake.StatusChanged += (id, error) => Dispatcher.BeginInvoke(() => _mixer?.SetKeepAwakeError(id, error));
+        _mixer.KeepAwakeChanged += () => _keepAwake.Apply(_mixer.KeepAwakeDevices);
+        _keepAwake.Apply(_mixer.KeepAwakeDevices);
 
         _mixer.Start();
         RegisterHotkeys();
@@ -182,6 +190,7 @@ public partial class App : Application
     private void ExitApp()
     {
         _hotkeys?.Dispose();
+        _keepAwake?.Dispose();
         _mixer?.Dispose();
         _tray?.Dispose();
         _tray = null;

@@ -26,6 +26,7 @@
   - [Profiles: Headset and Home Theater](#profiles-headset-and-home-theater)
   - [Channel settings](#channel-settings)
   - [Noise removal (NVIDIA Broadcast)](#noise-removal-nvidia-broadcast)
+  - [Keep device awake](#keep-device-awake)
   - [Global shortcuts](#global-shortcuts)
   - [Devices tab](#devices-tab)
   - [Tray icon](#tray-icon)
@@ -67,6 +68,8 @@ interface, profiles, ChatMix and shortcuts.
 - **ChatMix:** one slider to balance Game against Chat, like on a gaming headset.
 - **Profiles:** switch Game, Media and Aux between your **Headset** and **Home Theater** in one click.
 - **Noise removal:** one switch per channel to send Chat and Mic through NVIDIA Broadcast (when it's installed).
+- **Keep device awake:** plays inaudible noise to a receiver or soundbar so it never sleeps and doesn't cut off
+  the start of sounds after a pause.
 - **Global shortcuts:** switch device, change volume, mute, and switch profile from inside games, with an
   on-screen confirmation.
 - **Tray icon:** pick devices and profiles from the tray; AudioDesk keeps working with the window closed.
@@ -179,6 +182,7 @@ Each channel has a **⚙** button that opens its settings:
 
 - **Device:** the full device name (the drop-down cuts long names off) and its real format.
 - **Noise removal:** Chat and Mic only, and only when NVIDIA Broadcast is installed. See below.
+- **Keep device awake:** Game, Chat, Media and Aux. Applies to the channel's device. See below.
 - **Shortcuts:** see [Global shortcuts](#global-shortcuts).
 - **Windows sound settings:** opens the classic Sound control panel (Recording tab for Mic).
 
@@ -201,6 +205,29 @@ Set Broadcast up once, in the Broadcast app:
 When it's installed, Broadcast may make itself the Windows default device. If so, set **Game** back to your
 headset in AudioDesk. If people can't hear you, check the level of *Microphone (NVIDIA Broadcast)*: set the Mic
 channel volume to 100%.
+
+### Keep device awake
+
+Many receivers and soundbars, especially on optical (S/PDIF) or HDMI, go to sleep when the audio signal stops.
+When sound starts again they need a moment to lock back on, so the first second gets cut off, e.g. after you
+pause a video for a while and press play.
+
+**Keep device awake** fixes this by playing very quiet white noise to the device all the time, so the signal
+never stops. Turn it on in a channel's ⚙ (it applies to that channel's device) or with the **Keep awake**
+checkbox on the [Devices tab](#devices-tab).
+
+| Level | Use |
+|---|---|
+| Inaudible (−80 dB) | Default; enough for most receivers |
+| Very quiet (−70 dB) | If the device still falls asleep |
+| Quiet (−60 dB) | Last resort |
+
+- The setting is saved per device and starts with AudioDesk. If the device restarts (default switch, unplug,
+  format change), the noise starts again automatically.
+- The noise is mixed by Windows like any other sound, so it also goes through effects such as Dolby Digital Live
+  encoding, which keeps the encoded stream running too.
+- While it's on, the device is always in use: the receiver won't go to standby on its own, and players that need
+  the device **exclusively** (bitstream passthrough in VLC, MPC, Kodi) can't open it. Turn it off for those.
 
 ### Global shortcuts
 
@@ -238,7 +265,7 @@ won't interrupt a game:
 
 All active playback and recording devices with their real format. **Default** marks the Windows default
 device and **Calls** the communications device; **Virtual** marks virtual devices. Use **Make default** and
-**Use for calls** to change them.
+**Use for calls** to change them, and **Keep awake** to [keep a playback device awake](#keep-device-awake).
 
 ### Tray icon
 
@@ -300,7 +327,7 @@ Settings are saved to:
 ```
 
 It contains the channel devices, volumes and mute states, which channel each app belongs to (by process name),
-ChatMix, profile devices and all shortcuts. It's plain JSON. To start over, quit AudioDesk and delete the file.
+ChatMix, profile devices, all shortcuts and the kept-awake devices with their noise levels. It's plain JSON. To start over, quit AudioDesk and delete the file.
 
 Windows also remembers per-app device choices itself. To clear those: *Settings → System → Sound → Volume
 mixer → Reset*.
@@ -323,6 +350,8 @@ mixer → Reset*.
 | People can't hear me with noise removal on | Set the Mic channel volume to 100% (Broadcast's virtual mic can start at 0%). Check Broadcast's Microphone source. |
 | No sound in Chat with noise removal on | In the Broadcast app, set the Speakers output to your headset. |
 | A shortcut shows "already used by another app" | Another program owns that combination. Choose a different one. |
+| The start of sounds is cut off on a receiver/soundbar | Turn on [Keep device awake](#keep-device-awake) for that device. |
+| A bitstream/passthrough player can't open the device | Turn off Keep device awake for that device while you use the player. |
 | Tray icon missing | It's in the hidden-icons area (**^**). Drag it onto the taskbar. |
 
 ## Limitations
@@ -369,6 +398,7 @@ AudioDesk/
 ├─ Converters.cs            XAML helpers (popup placement, inverse bool)
 ├─ Audio/
 │  ├─ AudioService.cs       Devices (cached), formats, audio sessions, session/device volume
+│  ├─ KeepAwakeService.cs   Quiet noise streams that keep receivers/soundbars awake
 │  └─ Interop.cs            IPolicyConfig (default devices), IAudioPolicyConfigFactory (per-app routing)
 ├─ Mixer/
 │  ├─ ChannelManager.cs     Channels, routing enforcement, profiles, ChatMix, noise removal, settings file

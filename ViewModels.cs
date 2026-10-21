@@ -16,9 +16,22 @@ public abstract class ObservableObject : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }
 
-public sealed class DeviceItem(DeviceInfo info)
+/// <summary>A keep-awake noise level choice.</summary>
+public sealed record NoiseLevel(double Db, string Label)
+{
+    public static readonly IReadOnlyList<NoiseLevel> All =
+    [
+        new(-80, "Inaudible (−80 dB)"),
+        new(-70, "Very quiet (−70 dB)"),
+        new(-60, "Quiet (−60 dB)"),
+    ];
+}
+
+public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false)
 {
     public DeviceInfo Info => info;
+    public bool KeepAwake => keepAwake;
+    public bool IsPlayback => info.Flow == DataFlow.Render;
     public string Id => info.Id;
     public string Name => info.Name;
     public string Format => info.Format;
@@ -383,6 +396,50 @@ public sealed class ChannelViewModel : ObservableObject
 
     public string SettingsTitle => $"{Title} settings";
 
+    // --- Keep awake (applies to the channel's real device) ---
+
+    private string? _outputDeviceId;
+    private bool _keepAwake;
+    private double _keepAwakeDb = ChannelManager.DefaultKeepAwakeDb;
+    private string? _keepAwakeError;
+
+    public bool KeepAwakeAvailable => _outputDeviceId != null;
+    public IReadOnlyList<NoiseLevel> NoiseLevels => NoiseLevel.All;
+
+    public bool KeepAwake
+    {
+        get => _keepAwake;
+        set
+        {
+            if (value == _keepAwake || _outputDeviceId == null) return;
+            _keepAwake = value;
+            OnPropertyChanged();
+            if (_syncing) return;
+            _mixer.SetKeepAwake(_outputDeviceId, value, _keepAwakeDb);
+            _report(value ? $"Keeping {DeviceName} awake with quiet noise." : $"{DeviceName} is no longer kept awake.");
+        }
+    }
+
+    public double KeepAwakeDb
+    {
+        get => _keepAwakeDb;
+        set
+        {
+            if (value == _keepAwakeDb) return;
+            _keepAwakeDb = value;
+            OnPropertyChanged();
+            if (!_syncing && _keepAwake && _outputDeviceId != null) _mixer.SetKeepAwake(_outputDeviceId, true, value);
+        }
+    }
+
+    public string? KeepAwakeError
+    {
+        get => _keepAwakeError;
+        private set { _keepAwakeError = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasKeepAwakeError)); }
+    }
+
+    public bool HasKeepAwakeError => !string.IsNullOrEmpty(_keepAwakeError);
+
     private string _gameDeviceName = "";
 
     /// <summary>Full device name for the settings popup (the drop-down cuts long names off).</summary>
@@ -451,6 +508,14 @@ public sealed class ChannelViewModel : ObservableObject
             OnPropertyChanged(nameof(FormatLine));
             OnPropertyChanged(nameof(DeviceName));
             IsSwitching = _mixer.IsSwitching(Channel);
+
+            _outputDeviceId = _mixer.OutputDeviceId(Channel);
+            _keepAwake = _outputDeviceId != null && _mixer.IsKeepAwake(_outputDeviceId);
+            _keepAwakeDb = _outputDeviceId != null ? _mixer.KeepAwakeLevel(_outputDeviceId) : ChannelManager.DefaultKeepAwakeDb;
+            KeepAwakeError = _outputDeviceId != null ? _mixer.KeepAwakeError(_outputDeviceId) : null;
+            OnPropertyChanged(nameof(KeepAwakeAvailable));
+            OnPropertyChanged(nameof(KeepAwake));
+            OnPropertyChanged(nameof(KeepAwakeDb));
 
             foreach (var shortcut in Shortcuts) shortcut.Sync(_mixer);
 

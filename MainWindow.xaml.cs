@@ -65,14 +65,25 @@ public partial class MainWindow : Window
         else if (!AppRouting.IsSupported) StatusText.Text = "Per-app routing isn't available on this Windows build, so apps can't be moved between devices.";
     }
 
-    private static void Fill(ObservableCollection<DeviceItem> target, IReadOnlyList<DeviceInfo> devices)
+    private void Fill(ObservableCollection<DeviceItem> target, IReadOnlyList<DeviceInfo> devices)
     {
+        var items = devices.OrderByDescending(d => d.IsDefault).Select(d => new DeviceItem(d, _mixer.IsKeepAwake(d.Id))).ToList();
         // Skip rebuilding the list (and redrawing the Devices tab) when nothing changed.
-        if (target.Count == devices.Count && target.Zip(devices.OrderByDescending(d => d.IsDefault)).All(p => p.First.Info == p.Second))
+        if (target.Count == items.Count && target.Zip(items).All(p => p.First.Info == p.Second.Info && p.First.KeepAwake == p.Second.KeepAwake))
             return;
         target.Clear();
-        foreach (var device in devices.OrderByDescending(d => d.IsDefault))
-            target.Add(new DeviceItem(device));
+        foreach (var item in items) target.Add(item);
+    }
+
+    /// <summary>Checked/Unchecked (not Click) so keyboard and accessibility toggles work too. Also fires when
+    /// the list is filled, so only act when the box disagrees with the saved setting.</summary>
+    private void KeepAwake_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox { Tag: DeviceItem device } box) return;
+        bool on = box.IsChecked == true;
+        if (on == _mixer.IsKeepAwake(device.Id)) return;
+        _mixer.SetKeepAwake(device.Id, on);
+        Report(on ? $"Keeping {device.Name} awake with quiet noise." : $"{device.Name} is no longer kept awake.");
     }
 
     private void Report(string message) => StatusText.Text = message;
