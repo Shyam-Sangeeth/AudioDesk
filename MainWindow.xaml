@@ -526,7 +526,7 @@
                                                 Visibility="{Binding Updates.IsUpdateAvailable, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel>
                                 </Grid>
-                                <ProgressBar Margin="36,10,0,0" Height="4" Maximum="100" Value="{Binding Updates.Progress}"
+                                <ProgressBar Margin="36,10,0,0" Height="4" Maximum="100" Value="{Binding Updates.Progress, Mode=OneWay}"
                                              Visibility="{Binding Updates.IsDownloading, Converter={StaticResource BoolToVisibility}}" />
                                 <CheckBox Margin="36,12,0,0" Content="Check for updates automatically when AudioDesk starts"
                                           IsChecked="{Binding Updates.AutoCheck, Mode=TwoWay}" />
