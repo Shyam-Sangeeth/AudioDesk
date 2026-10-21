@@ -109,9 +109,9 @@ Each card is a channel:
 | Channel | What it's for | Device |
 |---|---|---|
 | **Game** | Games, and every app you haven't moved | Your Windows **default output**. Changing it here changes the Windows default. |
-| **Chat** | Discord, Teams, Zoom… | Any output, or *Same as Game*. Also becomes the Windows **communications** device. |
-| **Media** | Music, videos, browsers | Any output, or *Same as Game*. |
-| **Aux** | Anything you want to keep separate | Any output, or *Same as Game*. |
+| **Chat** | Discord, Teams, Zoom… | Any output. Also becomes the Windows **communications** device. |
+| **Media** | Music, videos, browsers | Any output. |
+| **Aux** | Anything you want to keep separate | Any output. |
 | **Mic** | Your microphone | Your Windows **default recording device**. Lists the apps currently using the mic. |
 
 In each card:
@@ -154,8 +154,8 @@ The **Profile** buttons above the channels move Game, Media and Aux together:
 | **Headset** | → headset | not changed | not changed |
 | **Home Theater** | → home theater | kept on the headset* | not changed |
 
-\* If Chat was following Game (*Same as Game*) or was on the home theater, it's set to the headset. Any other
-Chat device, such as NVIDIA Broadcast, is left alone.
+\* If Chat was on the home theater, it's moved to the headset. Any other Chat device, such as NVIDIA Broadcast,
+is left alone.
 
 The active profile is highlighted. If your channels match neither profile, neither button is highlighted.
 

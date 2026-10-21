@@ -14,11 +14,11 @@ public enum Profile { Headset, HomeTheater }
 
 public sealed class ChannelSettings
 {
-    /// <summary>Output device for Chat/Media/Aux; null means "same as Game". Unused for Game and Mic,
+    /// <summary>Output device for Chat/Media/Aux (null only in old settings; pinned to Game's device on start). Unused for Game and Mic,
     /// which are the Windows default playback and recording devices.</summary>
     public string? DeviceId { get; set; }
 
-    /// <summary>The device to go back to when noise removal is turned off ("" = same as Game).</summary>
+    /// <summary>The device to go back to when noise removal is turned off.</summary>
     public string? DirectDeviceId { get; set; }
 
     public float Volume { get; set; } = 1f;
@@ -116,8 +116,27 @@ public sealed class ChannelManager : IDisposable
 
     public void Start()
     {
+        PinChannelsToRealDevices();
         Update(notify: true);
         _pollTimer.Start();
+    }
+
+    /// <summary>
+    /// Older settings could leave Chat/Media/Aux on "same as Game" (no device). The pickers only offer real
+    /// devices now, so pin those channels to the device Game uses today.
+    /// </summary>
+    private void PinChannelsToRealDevices()
+    {
+        string? game = DeviceId(Channel.Game);
+        if (game == null) return;
+        bool changed = false;
+        foreach (var channel in new[] { Channel.Chat, Channel.Media, Channel.Aux })
+        {
+            if (_config.Channels[channel].DeviceId != null) continue;
+            _config.Channels[channel].DeviceId = game;
+            changed = true;
+        }
+        if (changed) Save();
     }
 
     public void Refresh() => Update(notify: true);
@@ -134,14 +153,7 @@ public sealed class ChannelManager : IDisposable
 
     public List<DeviceChoice> Choices(Channel channel)
     {
-        var devices = _audio.GetDevices(FlowOf(channel));
-        var choices = new List<DeviceChoice>();
-        if (channel is Channel.Chat or Channel.Media or Channel.Aux)
-        {
-            string? gameId = DeviceId(Channel.Game);
-            choices.Add(new DeviceChoice("", "Same as Game", devices.FirstOrDefault(d => d.Id == gameId)?.Format ?? ""));
-        }
-        choices.AddRange(devices.Select(d => new DeviceChoice(d.Id, d.Name, d.Format)));
+        var choices = _audio.GetDevices(FlowOf(channel)).Select(d => new DeviceChoice(d.Id, d.Name, d.Format)).ToList();
 
         string? current = DeviceId(channel);
         if (current != null && choices.All(c => c.Id != current))
@@ -173,7 +185,7 @@ public sealed class ChannelManager : IDisposable
     }
 
     private string DeviceLabel(Channel channel, string deviceId) =>
-        deviceId.Length == 0 ? "Same as Game" : Choices(channel).FirstOrDefault(c => c.Id == deviceId)?.Label ?? "the new device";
+        Choices(channel).FirstOrDefault(c => c.Id == deviceId)?.Label ?? "the new device";
 
     // --- Switching state (drives the loaders in the window) ---
 
@@ -485,11 +497,11 @@ public sealed class ChannelManager : IDisposable
             string? target = settings.DirectDeviceId;
             if (string.IsNullOrEmpty(target) || target == broadcast)
             {
-                // Chat can fall back to "same as Game"; Mic needs a real microphone.
+                // No remembered device: Chat goes to the headset, Mic to the first real microphone.
                 target = channel == Channel.Chat
-                    ? ""
-                    : _audio.GetDevices(DataFlow.Capture).FirstOrDefault(d => d.Id != broadcast && !d.IsVirtual)?.Id
-                      ?? throw new InvalidOperationException("No other microphone found.");
+                    ? ProfileDeviceId(Profile.Headset) ?? DeviceId(Channel.Game)
+                    : _audio.GetDevices(DataFlow.Capture).FirstOrDefault(d => d.Id != broadcast && !d.IsVirtual)?.Id;
+                if (target == null) throw new InvalidOperationException(channel == Channel.Chat ? "No other output found." : "No other microphone found.");
             }
             SetDevice(channel, target);
         }

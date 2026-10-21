@@ -404,17 +404,8 @@ public sealed class ChannelViewModel : ObservableObject
 
     public string SettingsTitle => $"{Title} settings";
 
-    private string _gameDeviceName = "";
-
     /// <summary>Full device name for the settings popup (the drop-down cuts long names off).</summary>
-    public string DeviceName
-    {
-        get
-        {
-            string label = _choices.FirstOrDefault(c => c.Id == _deviceId)?.Label ?? "No device";
-            return _deviceId.Length == 0 && _gameDeviceName.Length > 0 ? $"Same as Game ({_gameDeviceName})" : label;
-        }
-    }
+    public string DeviceName => _choices.FirstOrDefault(c => c.Id == _deviceId)?.Label ?? "No device";
 
     public double Volume
     {
@@ -462,11 +453,6 @@ public sealed class ChannelViewModel : ObservableObject
             if (!choices.SequenceEqual(_choices)) Choices = choices;
 
             _deviceId = _mixer.DeviceId(Channel) ?? "";
-            if (_deviceId.Length == 0)
-            {
-                string? gameId = _mixer.DeviceId(Channel.Game);
-                _gameDeviceName = _mixer.Choices(Channel.Game).FirstOrDefault(c => c.Id == gameId)?.Label ?? "";
-            }
             OnPropertyChanged(nameof(DeviceId));
             OnPropertyChanged(nameof(Format));
             OnPropertyChanged(nameof(FormatLine));
