@@ -427,8 +427,20 @@ public sealed class ChannelViewModel : ObservableObject
 
     public void SetMeter(float level)
     {
-        double heard = IsMic ? _volume / 100.0 : _mixer.HeardVolume(Channel);
-        Meter = _muted ? 0 : Math.Clamp(level * heard, 0.0, 1.0);
+        double volume = _volume / 100.0;
+        if (_muted || volume <= 0)
+        {
+            Meter = 0;
+            return;
+        }
+
+        // The meter is drawn inside the slider track, filling the coloured part (left of the knob) in proportion
+        // to the level, like Windows does. That part ends at the knob's left edge, roughly 80% of the way to the
+        // volume position (the track spans the full width; the knob is about a fifth of it across).
+        // ChatMix is included: heard / volume is the ChatMix factor for Game/Chat (1 otherwise and for Mic).
+        double heard = IsMic ? volume : _mixer.HeardVolume(Channel);
+        double filledPart = volume * 0.8;
+        Meter = filledPart * Math.Clamp(level * heard / volume, 0.0, 1.0);
     }
 
     private bool _isUsingFallback;

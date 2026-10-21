@@ -180,12 +180,12 @@
                         </ToggleButton>
                         <Grid Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
                             <Slider Minimum="0" Maximum="100" IsMoveToPointEnabled="True" Value="{Binding Volume, Mode=TwoWay}" />
-                            <!-- Live level meter: a thin bar under the slider track that moves with the channel's audio. -->
-                            <Border VerticalAlignment="Bottom" Height="3" Margin="10,0,10,-4" CornerRadius="1.5"
-                                    IsHitTestVisible="False" ClipToBounds="True"
-                                    Background="{DynamicResource ControlStrokeColorDefaultBrush}">
-                                <Border CornerRadius="1.5" RenderTransformOrigin="0,0.5"
-                                        Background="{DynamicResource SystemFillColorSuccessBrush}">
+                            <!-- Live level meter inside the track, like the Windows 11 volume slider, drawn over the
+                                 filled part of the track in green so it shows on any accent colour. The level is scaled
+                                 by the volume, so it always ends before the knob. The track spans the slider's full
+                                 width, so the meter does too. -->
+                            <Border Height="4" VerticalAlignment="Center" IsHitTestVisible="False" ClipToBounds="True">
+                                <Border CornerRadius="2" RenderTransformOrigin="0,0.5" Background="{DynamicResource SystemFillColorSuccessBrush}">
                                     <Border.RenderTransform>
                                         <ScaleTransform ScaleX="{Binding Meter}" />
                                     </Border.RenderTransform>

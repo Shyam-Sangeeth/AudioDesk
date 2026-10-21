@@ -117,9 +117,9 @@ Each card is a channel:
 In each card:
 
 - **Device picker:** the line under it shows what the device really runs at.
-- **Live level meter:** the thin bar under the slider moves with the channel's audio (your microphone's level on
-  Mic). It shows what you hear, so it follows the channel volume and ChatMix and stays empty while muted. It only
-  runs while the window is visible.
+- **Live level meter:** like the Windows 11 volume slider, a green glow inside the slider track moves with the
+  channel's audio (your microphone's level on Mic). It fills the part of the track left of the knob, follows
+  ChatMix, and stays empty while muted. It only runs while the window is visible.
 - **Volume slider and mute button.** For output channels this sets each app's own volume in the Windows mixer,
   which is applied in 32-bit float inside the audio engine, so it doesn't reduce quality. For Mic it sets the
   microphone level.
