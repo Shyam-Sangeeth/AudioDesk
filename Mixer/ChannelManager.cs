@@ -94,6 +94,22 @@ public sealed class ChannelManager : IDisposable
     /// <summary>Raised on the UI thread when apps, channels or devices change.</summary>
     public event Action? StateChanged;
 
+    /// <summary>Raised on the UI thread after every app scan (about every 1.5 s), changed or not.</summary>
+    public event Action? Scanned;
+
+    /// <summary>Which channel each app's streams belong to, for the level meters.</summary>
+    public MeterService.ChannelMap BuildMeterMap()
+    {
+        var processChannels = new Dictionary<uint, Channel>();
+        var voice = new HashSet<uint>();
+        foreach (var app in Apps.Where(a => a.HasOutput))
+        {
+            foreach (uint pid in app.ProcessIds) processChannels[pid] = app.Channel;
+            if (PlaysOnChat(app)) voice.UnionWith(app.ProcessIds);
+        }
+        return new MeterService.ChannelMap(processChannels, EffectiveDeviceId(Channel.Chat), voice, DeviceId(Channel.Mic));
+    }
+
     public ChannelManager(AudioService audio)
     {
         _audio = audio;
@@ -637,6 +653,9 @@ public sealed class ChannelManager : IDisposable
         StateChanged?.Invoke();
     }
 
+    /// <summary>The volume an output channel is heard at (channel volume with ChatMix), for scaling its meter.</summary>
+    public float HeardVolume(Channel channel) => EffectiveVolume(channel);
+
     /// <summary>Channel volume with ChatMix applied: moving toward Game turns Chat down, and the other way round.</summary>
     private float EffectiveVolume(Channel channel)
     {
@@ -787,6 +806,7 @@ public sealed class ChannelManager : IDisposable
         LastError = error;
         Apps = apps;
         UpdateChatMixState();
+        Scanned?.Invoke();
 
         // Apps that just started get their channel's volume (only needed when it isn't plain 100%),
         // and apps that were just moved get their new channel's volume.

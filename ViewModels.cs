@@ -407,6 +407,30 @@ public sealed class ChannelViewModel : ObservableObject
 
     public string SettingsTitle => $"{Title} settings";
 
+    private double _meter;
+
+    /// <summary>
+    /// Live audio level (0–1) of this channel for the meter under the volume slider. Windows measures streams
+    /// before their volume is applied, so the level is scaled by what you actually hear: the channel volume
+    /// (with ChatMix) for outputs, the mic level for Mic. 0 while muted.
+    /// </summary>
+    public double Meter
+    {
+        get => _meter;
+        private set
+        {
+            if (Math.Abs(value - _meter) < 0.002) return;
+            _meter = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public void SetMeter(float level)
+    {
+        double heard = IsMic ? _volume / 100.0 : _mixer.HeardVolume(Channel);
+        Meter = _muted ? 0 : Math.Clamp(level * heard, 0.0, 1.0);
+    }
+
     private bool _isUsingFallback;
 
     /// <summary>The saved device is missing (e.g. NVIDIA Broadcast closed), so the channel uses a stand-in.</summary>

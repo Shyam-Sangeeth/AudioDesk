@@ -117,6 +117,9 @@ Each card is a channel:
 In each card:
 
 - **Device picker:** the line under it shows what the device really runs at.
+- **Live level meter:** the thin bar under the slider moves with the channel's audio (your microphone's level on
+  Mic). It shows what you hear, so it follows the channel volume and ChatMix and stays empty while muted. It only
+  runs while the window is visible.
 - **Volume slider and mute button.** For output channels this sets each app's own volume in the Windows mixer,
   which is applied in 32-bit float inside the audio engine, so it doesn't reduce quality. For Mic it sets the
   microphone level.
@@ -415,6 +418,7 @@ AudioDesk/
 ├─ Audio/
 │  ├─ AudioService.cs       Devices (cached), formats, audio sessions, session/device volume
 │  ├─ KeepAwakeService.cs   Quiet noise streams that keep receivers/soundbars awake
+│  ├─ MeterService.cs       Live per-channel level meters (background thread, ~30 updates/s)
 │  └─ Interop.cs            IPolicyConfig (default devices), IAudioPolicyConfigFactory (per-app routing)
 ├─ Mixer/
 │  ├─ ChannelManager.cs     Channels, routing enforcement, profiles, ChatMix, noise removal, settings file

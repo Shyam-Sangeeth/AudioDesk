@@ -24,10 +24,11 @@ public partial class MainWindow : Window
     public ObservableCollection<DeviceItem> Outputs { get; } = [];
     public ObservableCollection<DeviceItem> Inputs { get; } = [];
 
-    public MainWindow(AudioService audio, ChannelManager mixer)
+    public MainWindow(AudioService audio, ChannelManager mixer, MeterService meters)
     {
         _audio = audio;
         _mixer = mixer;
+        _meters = meters;
         ChatMix = new ChatMixViewModel(mixer, Report);
         Profiles = new ProfilesViewModel(mixer, Report);
         InitializeComponent();
@@ -39,6 +40,31 @@ public partial class MainWindow : Window
         // Changes can be raised from inside a binding update; sync after it finishes.
         _mixer.StateChanged += QueueSync;
         IsVisibleChanged += (_, _) => { if (IsVisible) QueueSync(); };
+
+        // Level meters: run only while the window can be seen, and follow every app scan.
+        _mixer.Scanned += () => _meters.SetMap(_mixer.BuildMeterMap());
+        _mixer.StateChanged += () => _meters.SetMap(_mixer.BuildMeterMap());
+        _meters.LevelsChanged += OnLevels;
+        IsVisibleChanged += (_, _) => UpdateMetersEnabled();
+        StateChanged += (_, _) => UpdateMetersEnabled();
+    }
+
+    private readonly MeterService _meters;
+    private IReadOnlyDictionary<Channel, float>? _pendingLevels;
+
+    private void UpdateMetersEnabled() => _meters.Enabled = IsVisible && WindowState != WindowState.Minimized;
+
+    /// <summary>Called ~30×/s on the meter thread; hands only the latest levels to the UI thread.</summary>
+    private void OnLevels(IReadOnlyDictionary<Channel, float> levels)
+    {
+        if (Interlocked.Exchange(ref _pendingLevels, levels) != null) return; // an update is already queued
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, () =>
+        {
+            var latest = Interlocked.Exchange(ref _pendingLevels, null);
+            if (latest == null) return;
+            foreach (var channel in Channels)
+                channel.SetMeter(latest.GetValueOrDefault(channel.Channel));
+        });
     }
 
     private void QueueSync()

@@ -22,6 +22,7 @@ public partial class App : Application
     private DispatcherTimer? _debounce;
     private HotkeyService? _hotkeys;
     private KeepAwakeService? _keepAwake;
+    private MeterService? _meters;
     private OsdWindow? _osd;
     private bool _hintShown;
 
@@ -76,7 +77,8 @@ public partial class App : Application
 
         _tray = new TrayIcon(_mixer, IconHelper.LoadTrayIcon(), ShowWindow, ExitApp);
 
-        _window = new MainWindow(_audio, _mixer);
+        _meters = new MeterService();
+        _window = new MainWindow(_audio, _mixer, _meters);
         _window.Closing += (_, args) =>
         {
             // Closing the window keeps AudioDesk running (and routing apps) in the tray.
@@ -207,6 +209,7 @@ public partial class App : Application
     {
         _hotkeys?.Dispose();
         _keepAwake?.Dispose();
+        _meters?.Dispose();
         _mixer?.Dispose();
         _tray?.Dispose();
         _tray = null;
