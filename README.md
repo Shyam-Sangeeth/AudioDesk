@@ -328,6 +328,10 @@ In Discord → **User Settings → Voice & Video**:
 Then, in AudioDesk, put **Discord** in the channel you want its normal audio in (Game or Media). Its voices
 appear in the **Chat** column marked **Voice**, and follow Chat's volume and ChatMix.
 
+This "Voice" handling only applies to voice and call apps (Discord, Teams, Zoom, Slack, Skype, TeamSpeak, Mumble,
+WhatsApp, Telegram, Signal, Guilded, Element) that are actively playing on the Chat device. Other apps never show
+up in Chat this way, even if they're briefly still playing on Chat's device after a device change.
+
 Also: run `mmsys.cpl` → **Communications** tab → **Do nothing**, so Windows doesn't lower other sounds during
 calls.
 

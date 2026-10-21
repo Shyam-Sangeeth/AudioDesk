@@ -24,7 +24,7 @@ public sealed record AudioApp(
     bool IsPlaying,
     bool HasOutput,
     bool HasInput,
-    IReadOnlySet<string> OutputDeviceIds);
+    IReadOnlySet<string> OutputDeviceIds); // devices the app is actively playing on right now
 
 /// <summary>Reads devices and app audio sessions, and reports device changes.</summary>
 public sealed class AudioService : IDisposable
@@ -208,8 +208,12 @@ public sealed class AudioService : IDisposable
 
         ForEachSession(DataFlow.Render, (deviceId, pid, session) =>
         {
+            bool active = session.State == AudioSessionState.AudioSessionStateActive;
             var s = sessions.GetValueOrDefault(pid);
-            sessions[pid] = (true, s.Input, s.Playing || session.State == AudioSessionState.AudioSessionStateActive);
+            sessions[pid] = (true, s.Input, s.Playing || active);
+            // Only devices the app is playing on right now: Windows keeps an app's old, idle sessions on devices
+            // it used before (e.g. before it was moved to another channel), which must not count.
+            if (!active) return;
             if (!outputDevices.TryGetValue(pid, out var set)) outputDevices[pid] = set = new(StringComparer.OrdinalIgnoreCase);
             set.Add(deviceId);
         });

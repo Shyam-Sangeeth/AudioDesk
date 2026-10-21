@@ -569,12 +569,25 @@ public sealed class ChannelManager : IDisposable
         Update(notify: true);
     }
 
+    // Voice/call apps that pick their own voice output device (e.g. Discord with Output Device = the Chat device).
+    private static readonly string[] VoiceAppPrefixes =
+    [
+        "discord", "teams", "ms-teams", "msteams", "zoom", "slack", "skype", "ts3client", "teamspeak", "mumble",
+        "whatsapp", "telegram", "signal", "guilded", "element",
+    ];
+
+    private static bool IsVoiceApp(MixerApp app) =>
+        VoiceAppPrefixes.Any(p => app.Key.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>
-    /// True when an app in another channel plays some of its audio on the Chat device itself, like Discord
-    /// with its voice output set to the Chat device and its other sounds in Media. That audio counts as Chat.
+    /// True when a voice/call app in another channel plays its voice on the Chat device itself, like Discord with
+    /// its voice output set to the Chat device and its other sounds in Media. That audio counts as Chat.
+    /// Only voice apps qualify: any other app on the Chat device is just still playing where it was before a
+    /// device change, and must not show up in Chat.
     /// </summary>
     public bool PlaysOnChat(MixerApp app)
     {
+        if (!IsVoiceApp(app)) return false;
         string? chat = EffectiveDeviceId(Channel.Chat);
         return chat != null && app.Channel != Channel.Chat && app.OutputDeviceIds.Contains(chat) &&
                !string.Equals(chat, EffectiveDeviceId(app.Channel), StringComparison.OrdinalIgnoreCase);
