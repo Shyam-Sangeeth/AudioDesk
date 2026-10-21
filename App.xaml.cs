@@ -27,6 +27,7 @@ public partial class App : Application
     private UpdateViewModel? _updates;
     private OsdWindow? _osd;
     private bool _hintShown;
+    private bool _exiting;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -62,8 +63,15 @@ public partial class App : Application
         if (!isFirst)
         {
             try { EventWaitHandle.OpenExisting(ShowEventName).Set(); } catch { }
-            Shutdown();
-            return;
+            // The other copy may be on its way out (e.g. it just started an update that launched us), so give
+            // it a moment to let go before deciding it's really still running.
+            try { isFirst = _instanceMutex.WaitOne(TimeSpan.FromSeconds(3)); }
+            catch (AbandonedMutexException) { isFirst = true; }
+            if (!isFirst)
+            {
+                Shutdown();
+                return;
+            }
         }
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
         new Thread(() =>
@@ -104,6 +112,7 @@ public partial class App : Application
         _window.Closing += (_, args) =>
         {
             // Closing the window keeps AudioDesk running (and routing apps) in the tray.
+            if (_exiting) return;
             args.Cancel = true;
             _window.Hide();
             if (!_hintShown)
@@ -272,6 +281,8 @@ public partial class App : Application
 
     private void ExitApp()
     {
+        if (_exiting) return;
+        _exiting = true;
         _hotkeys?.Dispose();
         _keepAwake?.Dispose();
         _meters?.Dispose();
