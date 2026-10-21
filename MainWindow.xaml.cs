@@ -21,7 +21,6 @@ public partial class MainWindow : Window
     public ObservableCollection<ChannelViewModel> Channels { get; } = [];
     public ChatMixViewModel ChatMix { get; }
     public ProfilesViewModel Profiles { get; }
-    public BusyViewModel Busy { get; } = new();
     public ObservableCollection<DeviceItem> Outputs { get; } = [];
     public ObservableCollection<DeviceItem> Inputs { get; } = [];
 
@@ -58,7 +57,6 @@ public partial class MainWindow : Window
         foreach (var channel in Channels) channel.Sync();
         ChatMix.Sync();
         Profiles.Sync();
-        Busy.Sync(_mixer);
         Fill(Outputs, _audio.GetDevices(DataFlow.Render));
         Fill(Inputs, _audio.GetDevices(DataFlow.Capture));
         SonarBanner.Visibility = Process.GetProcessesByName("SteelSeriesSonar").Length > 0 ? Visibility.Visible : Visibility.Collapsed;

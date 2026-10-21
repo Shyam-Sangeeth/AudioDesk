@@ -170,7 +170,8 @@ is left alone.
 
 The active profile is highlighted. If your channels match neither profile, neither button is highlighted.
 
-While a switch is in progress, AudioDesk shows a loader at the top and on each affected channel:
+While a switch is in progress, each affected channel shows a thin loader bar right under its device picker
+(here, Game switching):
 
 ![Switching](docs/screenshots/switching.png)
 
@@ -405,7 +406,7 @@ Dependencies: [NAudio.Wasapi](https://github.com/naudio/NAudio) 2.2.1 for Core A
 AudioDesk/
 ├─ App.xaml(.cs)            Startup, single instance, tray, shortcuts, on-screen confirmations, --selftest
 ├─ MainWindow.xaml(.cs)     Mixer and Devices tabs, popups, drag-and-drop, shortcut recorder
-├─ ViewModels.cs            Channel, ChatMix, profile, shortcut and loader view models
+├─ ViewModels.cs            Channel, ChatMix, profile and shortcut view models
 ├─ TrayIcon.cs              Tray icon and its menu; Start with Windows
 ├─ HotkeyService.cs         System-wide shortcuts (RegisterHotKey)
 ├─ OsdWindow.cs             On-screen confirmation popup

@@ -153,24 +153,6 @@ public sealed class ChatMixViewModel(ChannelManager mixer, Action<string> report
     }
 }
 
-/// <summary>The "Switching to …" loader at the top of the mixer.</summary>
-public sealed class BusyViewModel : ObservableObject
-{
-    private string? _text;
-
-    public bool IsBusy => _text != null;
-    public bool IsIdle => _text == null;
-    public string Text => _text ?? "";
-
-    public void Sync(ChannelManager mixer)
-    {
-        if (_text == mixer.SwitchingText) return;
-        _text = mixer.SwitchingText;
-        OnPropertyChanged(nameof(IsBusy));
-        OnPropertyChanged(nameof(IsIdle));
-        OnPropertyChanged(nameof(Text));
-    }
-}
 
 /// <summary>The Headset / Home Theater switch and its device pickers.</summary>
 public sealed class ProfilesViewModel(ChannelManager mixer, Action<string> report) : ObservableObject
@@ -358,7 +340,6 @@ public sealed class ChannelViewModel : ObservableObject
             _deviceId = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(Format));
-            OnPropertyChanged(nameof(FormatLine));
             OnPropertyChanged(nameof(DeviceName));
             if (_syncing) return;
             try
@@ -418,15 +399,11 @@ public sealed class ChannelViewModel : ObservableObject
             if (_isSwitching == value) return;
             _isSwitching = value;
             OnPropertyChanged();
-            OnPropertyChanged(nameof(FormatLine));
         }
     }
 
     /// <summary>What the selected device actually runs at, e.g. "5.1 · 48 kHz · 24-bit".</summary>
     public string Format => _choices.FirstOrDefault(c => c.Id == _deviceId)?.Format ?? "";
-
-    /// <summary>The line under the device picker: the format, or "Switching…" during a switch.</summary>
-    public string FormatLine => _isSwitching ? "Switching…" : Format;
 
     public string SettingsTitle => $"{Title} settings";
 
@@ -495,7 +472,6 @@ public sealed class ChannelViewModel : ObservableObject
             _deviceId = _mixer.DeviceId(Channel) ?? "";
             OnPropertyChanged(nameof(DeviceId));
             OnPropertyChanged(nameof(Format));
-            OnPropertyChanged(nameof(FormatLine));
             OnPropertyChanged(nameof(DeviceName));
             IsSwitching = _mixer.IsSwitching(Channel);
             IsUsingFallback = _mixer.IsUsingFallback(Channel);

@@ -211,12 +211,8 @@ public sealed class ChannelManager : IDisposable
     // --- Switching state (drives the loaders in the window) ---
 
     private readonly Dictionary<Channel, int> _switching = [];
-    private readonly List<string> _switchLabels = [];
 
     public bool IsSwitching(Channel channel) => _switching.GetValueOrDefault(channel) > 0;
-
-    /// <summary>"Switching to …" while any switch is in progress, otherwise null.</summary>
-    public string? SwitchingText => _switchLabels.Count > 0 ? $"Switching to {_switchLabels[^1]}…" : null;
 
     /// <summary>
     /// Runs a switch without freezing the window: changes the Windows default device on a worker thread when
@@ -227,7 +223,6 @@ public sealed class ChannelManager : IDisposable
     private async void SwitchInBackground(Channel[] channels, string label, string? defaultDeviceId, params Role[] roles)
     {
         foreach (var channel in channels) _switching[channel] = _switching.GetValueOrDefault(channel) + 1;
-        _switchLabels.Add(label);
         StateChanged?.Invoke();
 
         try
@@ -246,7 +241,6 @@ public sealed class ChannelManager : IDisposable
         finally
         {
             foreach (var channel in channels) _switching[channel]--;
-            _switchLabels.Remove(label);
             StateChanged?.Invoke();
         }
     }

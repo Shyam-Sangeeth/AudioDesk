@@ -146,16 +146,9 @@
                               SelectedValue="{Binding DeviceId, Mode=TwoWay}"
                               ToolTip="{Binding SelectedItem.Label, RelativeSource={RelativeSource Self}}" />
 
-                    <TextBlock DockPanel.Dock="Top" Margin="2,6,0,0" FontSize="12" Text="{Binding FormatLine}"
-                               Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
-                    <!-- Shown while the saved device is missing and a stand-in is used; it switches back by itself. -->
-                    <TextBlock DockPanel.Dock="Top" Margin="2,2,0,0" FontSize="11" TextWrapping="Wrap"
-                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                               Text="Saved device is unavailable, using this one for now."
-                               Visibility="{Binding IsUsingFallback, Converter={StaticResource BoolToVisibility}}" />
-                    <!-- Loader while this channel's device is switching. Hidden (not collapsed) keeps its
-                         space reserved, so the card doesn't jump when it appears. -->
-                    <ProgressBar DockPanel.Dock="Top" Margin="2,4,0,0" Height="3" IsIndeterminate="True">
+                    <!-- Loader right under the picker while this channel's device is switching. Hidden (not
+                         collapsed) keeps its space reserved, so the card doesn't jump when it appears. -->
+                    <ProgressBar DockPanel.Dock="Top" Margin="2,4,2,0" Height="3" IsIndeterminate="True">
                         <ProgressBar.Style>
                             <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
                                 <Setter Property="Visibility" Value="Hidden" />
@@ -167,6 +160,14 @@
                             </Style>
                         </ProgressBar.Style>
                     </ProgressBar>
+
+                    <TextBlock DockPanel.Dock="Top" Margin="2,3,0,0" FontSize="12" Text="{Binding Format}"
+                               Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
+                    <!-- Shown while the saved device is missing and a stand-in is used; it switches back by itself. -->
+                    <TextBlock DockPanel.Dock="Top" Margin="2,2,0,0" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               Text="Saved device is unavailable, using this one for now."
+                               Visibility="{Binding IsUsingFallback, Converter={StaticResource BoolToVisibility}}" />
 
                     <Grid DockPanel.Dock="Top" Margin="0,10,0,0">
                         <Grid.ColumnDefinitions>
@@ -352,13 +353,6 @@
                                     </StackPanel>
                                 </Border>
                             </Popup>
-                        </StackPanel>
-
-                        <!-- Loader while any device switch is in progress. -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
-                                    Visibility="{Binding Busy.IsBusy, Converter={StaticResource BoolToVisibility}}">
-                            <ProgressBar Width="140" Height="4" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,12,0" />
-                            <TextBlock Text="{Binding Busy.Text}" VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
 
