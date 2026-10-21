@@ -143,13 +143,22 @@ public sealed class ChannelManager : IDisposable
 
     public static DataFlow FlowOf(Channel channel) => channel == Channel.Mic ? DataFlow.Capture : DataFlow.Render;
 
-    /// <summary>The device a channel plays on (or records from). Null for Chat/Media/Aux means "same as Game".</summary>
+    /// <summary>
+    /// The device a channel plays on (or records from) right now. For Chat/Media/Aux this is the saved device,
+    /// or a fallback while the saved device is missing (see <see cref="EffectiveDeviceId"/>).
+    /// </summary>
     public string? DeviceId(Channel channel) => channel switch
     {
         Channel.Game => _audio.DefaultId(DataFlow.Render, Role.Multimedia),
         Channel.Mic => _audio.DefaultId(DataFlow.Capture, Role.Multimedia),
-        _ => _config.Channels[channel].DeviceId,
+        _ => EffectiveDeviceId(channel),
     };
+
+    /// <summary>True while a Chat/Media/Aux channel's saved device is missing and it plays on a fallback.</summary>
+    public bool IsUsingFallback(Channel channel) =>
+        channel is Channel.Chat or Channel.Media or Channel.Aux &&
+        _config.Channels[channel].DeviceId is { } saved &&
+        !string.Equals(saved, EffectiveDeviceId(channel), StringComparison.OrdinalIgnoreCase);
 
     public List<DeviceChoice> Choices(Channel channel)
     {
@@ -529,18 +538,31 @@ public sealed class ChannelManager : IDisposable
     /// </summary>
     public bool PlaysOnChat(MixerApp app)
     {
-        string? chat = _config.Channels[Channel.Chat].DeviceId;
+        string? chat = EffectiveDeviceId(Channel.Chat);
         return chat != null && app.Channel != Channel.Chat && app.OutputDeviceIds.Contains(chat) &&
                !string.Equals(chat, EffectiveDeviceId(app.Channel), StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>The device a channel's apps actually end up on ("same as Game" resolved).</summary>
-    private string? EffectiveDeviceId(Channel channel) =>
-        channel is Channel.Game or Channel.Mic ? DeviceId(channel) : _config.Channels[channel].DeviceId ?? DeviceId(Channel.Game);
+    /// <summary>
+    /// The device a channel's apps actually play on. For Chat/Media/Aux: the saved device while it's connected.
+    /// If it's missing (e.g. NVIDIA Broadcast was closed, or a device was unplugged), fall back to the device the
+    /// channel used before noise removal, then the headset, then Game's device. The saved choice is kept, so the
+    /// channel returns to it automatically when the device comes back.
+    /// </summary>
+    private string? EffectiveDeviceId(Channel channel)
+    {
+        if (channel is Channel.Game or Channel.Mic) return DeviceId(channel);
+
+        var settings = _config.Channels[channel];
+        var connected = _audio.GetDevices(DataFlow.Render).Select(d => d.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (settings.DeviceId != null && connected.Contains(settings.DeviceId)) return settings.DeviceId;
+        if (!string.IsNullOrEmpty(settings.DirectDeviceId) && connected.Contains(settings.DirectDeviceId)) return settings.DirectDeviceId;
+        return ProfileDeviceId(Profile.Headset) ?? DeviceId(Channel.Game);
+    }
 
     /// <summary>Which channel's volume a single audio stream follows.</summary>
     private Channel SessionChannel(MixerApp app, string deviceId) =>
-        PlaysOnChat(app) && string.Equals(deviceId, _config.Channels[Channel.Chat].DeviceId, StringComparison.OrdinalIgnoreCase)
+        PlaysOnChat(app) && string.Equals(deviceId, EffectiveDeviceId(Channel.Chat), StringComparison.OrdinalIgnoreCase)
             ? Channel.Chat
             : app.Channel;
 
@@ -603,6 +625,11 @@ public sealed class ChannelManager : IDisposable
     {
         if (channel == Channel.Mic)
         {
+            // Remembered so it can be re-applied when the mic changes (see EnforceMicLevel).
+            var mic = _config.Channels[Channel.Mic];
+            mic.Volume = volume;
+            mic.Muted = muted;
+            Save();
             string? id = DeviceId(channel);
             if (id != null) _audio.SetDeviceLevel(id, volume, muted);
             return;
@@ -650,7 +677,8 @@ public sealed class ChannelManager : IDisposable
 
         // The worker gets its own copies so it never reads settings the UI is changing.
         var appChannels = new Dictionary<string, Channel>(_config.Apps, StringComparer.OrdinalIgnoreCase);
-        var channelDevices = OutputChannels.ToDictionary(c => c, c => _config.Channels[c].DeviceId);
+        // Resolved devices (with fallbacks), so apps never get routed to a device that's gone.
+        var channelDevices = OutputChannels.ToDictionary(c => c, c => c == Channel.Game ? null : EffectiveDeviceId(c));
 
         Task.Run(() => Scan(appChannels, channelDevices)).ContinueWith(task =>
         {
@@ -690,8 +718,25 @@ public sealed class ChannelManager : IDisposable
         return (apps, error);
     }
 
+    private string? _lastMicDevice;
+
+    /// <summary>
+    /// Applies the Mic channel's volume to the microphone whenever the mic device changes or comes back.
+    /// NVIDIA Broadcast's virtual mic reappears at 0% after Broadcast restarts, which would make you silent in calls.
+    /// </summary>
+    private void EnforceMicLevel()
+    {
+        string? mic = DeviceId(Channel.Mic);
+        if (mic == null || string.Equals(mic, _lastMicDevice, StringComparison.OrdinalIgnoreCase)) return;
+        _lastMicDevice = mic;
+        var settings = _config.Channels[Channel.Mic];
+        try { _audio.SetDeviceLevel(mic, settings.Volume, settings.Muted); }
+        catch { _lastMicDevice = null; } // device busy or gone; try again on the next scan
+    }
+
     private void Publish(List<MixerApp> apps, string? error, bool notify)
     {
+        EnforceMicLevel();
         var pids = apps.SelectMany(a => a.ProcessIds).ToHashSet();
         var newPids = pids.Where(p => !_knownPids.Contains(p)).ToHashSet();
         _knownPids = pids;

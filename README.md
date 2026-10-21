@@ -122,6 +122,12 @@ In each card:
   microphone level.
 - **Apps:** the apps in this channel. A green dot means the app is playing right now.
 
+**When a device disappears** (unplugged, or NVIDIA Broadcast closed), Chat, Media and Aux keep working: the
+channel temporarily uses the device it used before noise removal, otherwise your headset, otherwise Game's
+device. The card says *Saved device is unavailable, using this one for now*, and the channel goes back to the
+saved device by itself when it returns. The **Mic** channel's volume is re-applied whenever the microphone
+changes, so a mic that comes back at 0% (as Broadcast's does after a restart) is fixed automatically.
+
 ### Moving apps between channels
 
 Drag an app onto another channel, or right-click it:
@@ -350,7 +356,8 @@ mixer → Reset*.
 | An app doesn't move to its channel's device | Restart the app. If the app has its own device setting, set it to **Default**: apps that pick a specific device ignore per-app routing. |
 | An app isn't listed | It appears once it opens an audio stream (starts playing or joins a call). |
 | Everything suddenly plays through NVIDIA Broadcast | Broadcast made itself the default device. Set **Game** back to your headset. |
-| People can't hear me with noise removal on | Set the Mic channel volume to 100% (Broadcast's virtual mic can start at 0%). Check Broadcast's Microphone source. |
+| People can't hear me with noise removal on | Check the Mic channel volume (AudioDesk re-applies it when Broadcast's mic comes back at 0%). Check Broadcast's Microphone source. |
+| Chat says "Saved device is unavailable" | Its device is gone (e.g. NVIDIA Broadcast was closed). Chat uses a stand-in and switches back when the device returns. |
 | No sound in Chat with noise removal on | In the Broadcast app, set the Speakers output to your headset. |
 | A shortcut shows "already used by another app" | Another program owns that combination. Choose a different one. |
 | The start of sounds is cut off on a receiver/soundbar | Turn on [Keep device awake](#keep-device-awake) for that device. |

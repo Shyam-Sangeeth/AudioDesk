@@ -148,6 +148,11 @@
 
                     <TextBlock DockPanel.Dock="Top" Margin="2,6,0,0" FontSize="12" Text="{Binding FormatLine}"
                                Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
+                    <!-- Shown while the saved device is missing and a stand-in is used; it switches back by itself. -->
+                    <TextBlock DockPanel.Dock="Top" Margin="2,2,0,0" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                               Text="Saved device is unavailable, using this one for now."
+                               Visibility="{Binding IsUsingFallback, Converter={StaticResource BoolToVisibility}}" />
                     <!-- Loader while this channel's device is switching. Hidden (not collapsed) keeps its
                          space reserved, so the card doesn't jump when it appears. -->
                     <ProgressBar DockPanel.Dock="Top" Margin="2,4,0,0" Height="3" IsIndeterminate="True">

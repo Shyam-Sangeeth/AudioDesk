@@ -404,6 +404,20 @@ public sealed class ChannelViewModel : ObservableObject
 
     public string SettingsTitle => $"{Title} settings";
 
+    private bool _isUsingFallback;
+
+    /// <summary>The saved device is missing (e.g. NVIDIA Broadcast closed), so the channel uses a stand-in.</summary>
+    public bool IsUsingFallback
+    {
+        get => _isUsingFallback;
+        private set
+        {
+            if (_isUsingFallback == value) return;
+            _isUsingFallback = value;
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>Full device name for the settings popup (the drop-down cuts long names off).</summary>
     public string DeviceName => _choices.FirstOrDefault(c => c.Id == _deviceId)?.Label ?? "No device";
 
@@ -458,6 +472,7 @@ public sealed class ChannelViewModel : ObservableObject
             OnPropertyChanged(nameof(FormatLine));
             OnPropertyChanged(nameof(DeviceName));
             IsSwitching = _mixer.IsSwitching(Channel);
+            IsUsingFallback = _mixer.IsUsingFallback(Channel);
 
             foreach (var shortcut in Shortcuts) shortcut.Sync(_mixer);
 
