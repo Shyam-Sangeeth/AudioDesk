@@ -47,6 +47,9 @@ public sealed class MixerConfig
 
     /// <summary>Playback devices kept awake with quiet noise: device id → noise level in dBFS.</summary>
     public Dictionary<string, double> KeepAwake { get; set; } = [];
+
+    /// <summary>Look for a newer release on GitHub shortly after AudioDesk starts.</summary>
+    public bool CheckForUpdates { get; set; } = true;
 }
 
 public sealed record MixerApp(
@@ -439,6 +442,18 @@ public sealed class ChannelManager : IDisposable
         foreach (var (slot, message) in errors)
             _hotkeyErrors[slot] = message;
         StateChanged?.Invoke();
+    }
+
+    // --- App settings ---
+
+    public bool CheckForUpdates
+    {
+        get => _config.CheckForUpdates;
+        set
+        {
+            _config.CheckForUpdates = value;
+            Save();
+        }
     }
 
     // --- Keep awake (quiet noise so receivers don't fall asleep) ---

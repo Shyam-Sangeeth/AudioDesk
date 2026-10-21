@@ -24,6 +24,7 @@ public partial class App : Application
     private HotkeyService? _hotkeys;
     private KeepAwakeService? _keepAwake;
     private MeterService? _meters;
+    private UpdateViewModel? _updates;
     private OsdWindow? _osd;
     private bool _hintShown;
 
@@ -98,7 +99,8 @@ public partial class App : Application
         _tray = new TrayIcon(_mixer, IconHelper.LoadTrayIcon(), ShowWindow, ExitApp);
 
         _meters = new MeterService();
-        _window = new MainWindow(_audio, _mixer, _meters);
+        _updates = new UpdateViewModel(_mixer, ExitApp);
+        _window = new MainWindow(_audio, _mixer, _meters, _updates);
         _window.Closing += (_, args) =>
         {
             // Closing the window keeps AudioDesk running (and routing apps) in the tray.
@@ -126,6 +128,7 @@ public partial class App : Application
 
         _mixer.Start();
         RegisterHotkeys();
+        CheckForUpdatesLater();
         if (!e.Args.Contains("--minimized"))
             ShowWindow();
     }
@@ -224,6 +227,26 @@ public partial class App : Application
         if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
         _window.Activate();
         _mixer?.Refresh();
+    }
+
+    /// <summary>
+    /// If enabled, checks GitHub for a newer release once, a little after startup (so it doesn't slow down
+    /// sign-in), and shows a tray notification that opens Settings → Updates when clicked.
+    /// </summary>
+    private async void CheckForUpdatesLater()
+    {
+        if (_updates == null || _mixer == null || !_mixer.CheckForUpdates) return;
+        await Task.Delay(TimeSpan.FromSeconds(20));
+        _updates.UpdateFound += update =>
+        {
+            if (_window is { IsVisible: true }) return; // the Settings tab already shows it
+            _tray?.ShowHint($"AudioDesk {update.Version} is available", "Click to open Settings and update.", () =>
+            {
+                ShowWindow();
+                _window?.ShowSettings();
+            });
+        };
+        await _updates.CheckAsync(quiet: true);
     }
 
     /// <summary>Asks a running AudioDesk to exit and waits (up to 10 s) until it has.</summary>

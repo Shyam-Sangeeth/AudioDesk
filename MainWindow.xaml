@@ -461,7 +461,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Settings">
+            <TabItem x:Name="SettingsTab" Header="Settings">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,4,0">
                     <StackPanel>
                         <TextBlock Text="General" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
@@ -497,6 +497,39 @@
                                     <TextBlock x:Name="VersionText" Text="AudioDesk" FontSize="15" FontWeight="SemiBold" />
                                     <TextBlock Text="github.com/Shyam-Sangeeth/AudioDesk" Margin="0,2,0,0" Style="{StaticResource SecondaryText}" />
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="Updates" FontSize="16" FontWeight="SemiBold" Margin="0,20,0,8" />
+                        <Border Padding="16,12" CornerRadius="8" BorderThickness="1"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="&#xE895;" FontFamily="{StaticResource IconFont}" FontSize="20"
+                                               VerticalAlignment="Center" Margin="0,0,16,0" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Updates.Status}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Margin="0,2,0,0" Visibility="{Binding Updates.IsUpdateAvailable, Converter={StaticResource BoolToVisibility}}">
+                                            <Hyperlink NavigateUri="{Binding Updates.ReleaseUrl}" RequestNavigate="ReleaseLink_RequestNavigate">What's new in this version</Hyperlink>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                                        <Button Content="Check for updates" Click="CheckUpdates_Click" IsEnabled="{Binding Updates.CanCheck}" />
+                                        <Button Content="{Binding Updates.InstallText}" Margin="8,0,0,0" Click="InstallUpdate_Click"
+                                                Style="{DynamicResource AccentButtonStyle}" IsEnabled="{Binding Updates.CanInstall}"
+                                                Visibility="{Binding Updates.IsUpdateAvailable, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </Grid>
+                                <ProgressBar Margin="36,10,0,0" Height="4" Maximum="100" Value="{Binding Updates.Progress}"
+                                             Visibility="{Binding Updates.IsDownloading, Converter={StaticResource BoolToVisibility}}" />
+                                <CheckBox Margin="36,12,0,0" Content="Check for updates automatically when AudioDesk starts"
+                                          IsChecked="{Binding Updates.AutoCheck, Mode=TwoWay}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>

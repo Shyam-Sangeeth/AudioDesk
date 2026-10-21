@@ -89,15 +89,17 @@ AudioDesk doesn't need administrator rights and doesn't install drivers.
 
 ## Installing and running
 
-**With the installer (recommended):** run `AudioDesk-<version>-x64.msi`
-(see [Building the installer](#building-the-installer)).
+**With the installer (recommended):** download `AudioDesk-<version>-x64.msi` from the
+[latest release](https://github.com/Shyam-Sangeeth/AudioDesk/releases/latest) and run it (or build it yourself, see
+[Building the installer](#building-the-installer)).
 
 - Installs for your account only, so there's no admin prompt, into `%LocalAppData%\Programs\AudioDesk`.
 - Adds a Start menu shortcut and an entry in **Settings → Apps** (for uninstalling).
 - The welcome screen has **"Start AudioDesk when Windows starts"**: ticked for new installs; when upgrading it
   keeps your current choice.
 - Starts AudioDesk when it finishes.
-- **Upgrading:** run a newer installer. It closes AudioDesk, replaces it and starts it again; your settings stay.
+- **Upgrading:** use **Settings → Updates** in AudioDesk, or run a newer installer. It closes AudioDesk, replaces
+  it and starts it again; your settings stay.
 - **Uninstalling** (Settings → Apps → AudioDesk) closes AudioDesk and removes its Start with Windows entry.
   Your settings file (`%AppData%\AudioDesk`) is kept in case you reinstall.
 
@@ -320,6 +322,12 @@ visible.
 - **Start with Windows:** starts AudioDesk in the tray when you sign in, so channels, shortcuts and keep awake
   work right away. (It adds AudioDesk to your Windows startup apps; you can also turn it off in
   *Settings → Apps → Startup*.)
+- **About:** the installed version.
+- **Updates:** **Check for updates** looks for a newer [release on GitHub](https://github.com/Shyam-Sangeeth/AudioDesk/releases).
+  If there is one, **Download and install** downloads its installer, verifies it (size and the SHA-256 checksum
+  GitHub publishes) and runs it; AudioDesk closes, is upgraded with your settings kept, and starts again.
+  **What's new** opens the release notes. With **Check for updates automatically** on (the default), AudioDesk
+  checks once, shortly after it starts, and shows a notification you can click to update.
 
 ## Setting up Discord
 
@@ -445,6 +453,9 @@ it with [WiX Toolset](https://wixtoolset.org/) 5 (pulled in automatically from N
 release so upgrades replace the previous version. The installer's artwork is rendered by
 `installer\make-installer-art.ps1`.
 
+**Releasing:** create a GitHub release tagged `v<version>` (e.g. `v1.1.0`) and attach the `.msi`. The in-app
+update check reads the latest release, so that's all it takes for installed copies to offer the update.
+
 ## Project structure
 
 ```
@@ -454,6 +465,7 @@ AudioDesk/
 ├─ ViewModels.cs            Channel, ChatMix, profile and shortcut view models
 ├─ TrayIcon.cs              Tray icon and its menu
 ├─ StartupSetting.cs        Start with Windows (per-user Run entry)
+├─ Updates/UpdateService.cs GitHub release check, verified installer download, runs the installer
 ├─ HotkeyService.cs         System-wide shortcuts (RegisterHotKey)
 ├─ OsdWindow.cs             On-screen confirmation popup
 ├─ IconHelper.cs            App icon and app-icon lookup

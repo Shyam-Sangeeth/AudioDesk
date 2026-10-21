@@ -31,11 +31,19 @@ internal sealed class TrayIcon : IDisposable
         {
             if (e.Button == Forms.MouseButtons.Left) _open();
         };
+        _icon.BalloonTipClicked += (_, _) => _hintClicked?.Invoke();
+        _icon.BalloonTipClosed += (_, _) => _hintClicked = null;
         UpdateTooltip();
     }
 
-    public void ShowHint(string title, string text) =>
-        _icon.ShowBalloonTip(3000, title, text, Forms.ToolTipIcon.None);
+    private Action? _hintClicked;
+
+    /// <summary>Shows a notification; <paramref name="onClick"/> runs if the user clicks it.</summary>
+    public void ShowHint(string title, string text, Action? onClick = null)
+    {
+        _hintClicked = onClick;
+        _icon.ShowBalloonTip(5000, title, text, Forms.ToolTipIcon.None);
+    }
 
     private void BuildMenu(Forms.ContextMenuStrip menu)
     {

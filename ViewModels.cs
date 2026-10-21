@@ -157,6 +157,104 @@ public sealed class ChatMixViewModel(ChannelManager mixer, Action<string> report
 }
 
 
+/// <summary>Settings → Updates: check GitHub for a newer release, download it and run its installer.</summary>
+public sealed class UpdateViewModel(ChannelManager mixer, Action exitForUpdate) : ObservableObject
+{
+    private Updates.UpdateInfo? _update;
+    private string _status = $"You have AudioDesk {Updates.UpdateService.CurrentVersion}.";
+    private bool _busy;
+    private bool _downloading;
+    private double _progress;
+
+    /// <summary>Raised when a check finds a newer release.</summary>
+    public event Action<Updates.UpdateInfo>? UpdateFound;
+
+    public string Status
+    {
+        get => _status;
+        private set { _status = value; OnPropertyChanged(); }
+    }
+
+    public bool IsUpdateAvailable => _update != null;
+    public bool CanCheck => !_busy;
+    public bool CanInstall => _update != null && !_busy;
+    public bool IsDownloading => _downloading;
+    public string InstallText => _update == null ? "" : $"Download and install {_update.Version}";
+    public string ReleaseUrl => _update?.PageUrl ?? "https://github.com/Shyam-Sangeeth/AudioDesk/releases";
+
+    public double Progress
+    {
+        get => _progress;
+        private set { _progress = value; OnPropertyChanged(); }
+    }
+
+    public bool AutoCheck
+    {
+        get => mixer.CheckForUpdates;
+        set
+        {
+            if (value == mixer.CheckForUpdates) return;
+            mixer.CheckForUpdates = value;
+            OnPropertyChanged();
+        }
+    }
+
+    private void SetBusy(bool busy, bool downloading = false)
+    {
+        _busy = busy;
+        _downloading = downloading;
+        foreach (var name in new[] { nameof(CanCheck), nameof(CanInstall), nameof(IsDownloading), nameof(IsUpdateAvailable),
+                                     nameof(InstallText), nameof(ReleaseUrl) })
+            OnPropertyChanged(name);
+    }
+
+    /// <summary>Checks GitHub. <paramref name="quiet"/> keeps error messages short (automatic checks).</summary>
+    public async Task CheckAsync(bool quiet)
+    {
+        if (_busy) return;
+        SetBusy(true);
+        Status = "Checking for updates…";
+        try
+        {
+            _update = await Updates.UpdateService.CheckAsync();
+            Status = _update == null
+                ? $"You're up to date (AudioDesk {Updates.UpdateService.CurrentVersion})."
+                : $"AudioDesk {_update.Version} is available (you have {Updates.UpdateService.CurrentVersion}).";
+            if (_update != null) UpdateFound?.Invoke(_update);
+        }
+        catch (Exception ex)
+        {
+            Status = quiet ? "Couldn't check for updates." : $"Couldn't check for updates: {ex.Message}";
+        }
+        finally
+        {
+            SetBusy(false);
+        }
+    }
+
+    /// <summary>Downloads and verifies the installer, starts it, then closes AudioDesk so it can be replaced.</summary>
+    public async Task InstallAsync()
+    {
+        if (_update == null || _busy) return;
+        SetBusy(true, downloading: true);
+        Progress = 0;
+        Status = $"Downloading AudioDesk {_update.Version}…";
+        try
+        {
+            string installer = await Updates.UpdateService.DownloadAsync(_update, new Progress<double>(p => Progress = p * 100));
+            Status = "Installing… AudioDesk will restart when it's done.";
+            Updates.UpdateService.RunInstaller(installer);
+            await Task.Delay(1500);
+            exitForUpdate();
+        }
+        catch (Exception ex)
+        {
+            Status = $"Update failed: {ex.Message}";
+            SetBusy(false);
+        }
+    }
+}
+
 /// <summary>The Headset / Home Theater switch and its device pickers.</summary>
 public sealed class ProfilesViewModel(ChannelManager mixer, Action<string> report) : ObservableObject
 {

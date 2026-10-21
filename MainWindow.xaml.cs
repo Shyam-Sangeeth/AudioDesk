@@ -24,11 +24,14 @@ public partial class MainWindow : Window
     public ObservableCollection<DeviceItem> Outputs { get; } = [];
     public ObservableCollection<DeviceItem> Inputs { get; } = [];
 
-    public MainWindow(AudioService audio, ChannelManager mixer, MeterService meters)
+    public UpdateViewModel Updates { get; }
+
+    public MainWindow(AudioService audio, ChannelManager mixer, MeterService meters, UpdateViewModel updates)
     {
         _audio = audio;
         _mixer = mixer;
         _meters = meters;
+        Updates = updates;
         ChatMix = new ChatMixViewModel(mixer, Report);
         Profiles = new ProfilesViewModel(mixer, Report);
         InitializeComponent();
@@ -212,6 +215,19 @@ public partial class MainWindow : Window
     private void ChatMix_DoubleClick(object sender, MouseButtonEventArgs e) => ChatMix.Center();
 
     // --- Settings tab ---
+
+    public void ShowSettings() => SettingsTab.IsSelected = true;
+
+    private async void CheckUpdates_Click(object sender, RoutedEventArgs e) => await Updates.CheckAsync(quiet: false);
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e) => await Updates.InstallAsync();
+
+    private void ReleaseLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Exception ex) { Report($"Couldn't open the release page: {ex.Message}"); }
+        e.Handled = true;
+    }
 
     private bool _loadingSettings;
 
