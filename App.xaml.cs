@@ -93,16 +93,32 @@ public partial class App : Application
         _hotkeys = new HotkeyService();
         _mixer.HotkeysChanged += RegisterHotkeys;
 
-        // Quiet noise on devices that must not fall asleep (e.g. a soundbar on optical).
+        // Quiet noise on devices that must not fall asleep (e.g. a soundbar on optical), but only while
+        // a channel uses them; re-checked whenever channels, profiles or devices change.
         _keepAwake = new KeepAwakeService();
         _keepAwake.StatusChanged += (id, error) => Dispatcher.BeginInvoke(() => _mixer?.SetKeepAwakeError(id, error));
-        _mixer.KeepAwakeChanged += () => _keepAwake.Apply(_mixer.KeepAwakeDevices);
-        _keepAwake.Apply(_mixer.KeepAwakeDevices);
+        _mixer.KeepAwakeChanged += ApplyKeepAwake;
+        _mixer.StateChanged += ApplyKeepAwake;
+        ApplyKeepAwake();
 
         _mixer.Start();
         RegisterHotkeys();
         if (!e.Args.Contains("--minimized"))
             ShowWindow();
+    }
+
+    private string _keepAwakeApplied = "";
+
+    /// <summary>Plays keep-awake noise on the kept-awake devices that a channel uses; only touches the
+    /// streams when that set (or a level) actually changes.</summary>
+    private void ApplyKeepAwake()
+    {
+        if (_mixer == null || _keepAwake == null) return;
+        var active = _mixer.ActiveKeepAwake();
+        string signature = string.Join("|", active.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key}={kv.Value}"));
+        if (signature == _keepAwakeApplied) return;
+        _keepAwakeApplied = signature;
+        _keepAwake.Apply(active);
     }
 
     /// <summary>(Re)registers every channel shortcut with Windows and reports combinations other apps own.</summary>

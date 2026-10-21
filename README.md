@@ -182,7 +182,6 @@ Each channel has a **⚙** button that opens its settings:
 
 - **Device:** the full device name (the drop-down cuts long names off) and its real format.
 - **Noise removal:** Chat and Mic only, and only when NVIDIA Broadcast is installed. See below.
-- **Keep device awake:** Game, Chat, Media and Aux. Applies to the channel's device. See below.
 - **Shortcuts:** see [Global shortcuts](#global-shortcuts).
 - **Windows sound settings:** opens the classic Sound control panel (Recording tab for Mic).
 
@@ -212,9 +211,12 @@ Many receivers and soundbars, especially on optical (S/PDIF) or HDMI, go to slee
 When sound starts again they need a moment to lock back on, so the first second gets cut off, e.g. after you
 pause a video for a while and press play.
 
-**Keep device awake** fixes this by playing very quiet white noise to the device all the time, so the signal
-never stops. Turn it on in a channel's ⚙ (it applies to that channel's device) or with the **Keep awake**
-checkbox on the [Devices tab](#devices-tab).
+**Keep device awake** fixes this by playing very quiet white noise to the device, so the signal never stops.
+Turn it on with the **Keep awake** checkbox on the [Devices tab](#devices-tab), and pick the level next to it.
+
+The noise only plays while a channel (Game, Chat, Media or Aux) is using the device. With the Headset profile
+active, a kept-awake home theater gets no noise; switch to Home Theater and it starts automatically. While it's
+waiting, the device's card says *Keep awake is paused: no channel uses this device*.
 
 | Level | Use |
 |---|---|
@@ -226,8 +228,9 @@ checkbox on the [Devices tab](#devices-tab).
   format change), the noise starts again automatically.
 - The noise is mixed by Windows like any other sound, so it also goes through effects such as Dolby Digital Live
   encoding, which keeps the encoded stream running too.
-- While it's on, the device is always in use: the receiver won't go to standby on its own, and players that need
-  the device **exclusively** (bitstream passthrough in VLC, MPC, Kodi) can't open it. Turn it off for those.
+- While the noise plays, the device is always in use: the receiver won't go to standby on its own, and players
+  that need the device **exclusively** (bitstream passthrough in VLC, MPC, Kodi) can't open it. Turn it off for
+  those.
 
 ### Global shortcuts
 

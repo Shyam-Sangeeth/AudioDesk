@@ -411,6 +411,21 @@ public sealed class ChannelManager : IDisposable
 
     public bool IsKeepAwake(string deviceId) => _config.KeepAwake.ContainsKey(deviceId);
 
+    /// <summary>Real devices the output channels play on right now ("same as Game" resolved).</summary>
+    public HashSet<string> UsedOutputDevices() =>
+        OutputChannels.Select(EffectiveDeviceId).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Kept-awake devices that a channel is using; only these get the noise.</summary>
+    public Dictionary<string, double> ActiveKeepAwake()
+    {
+        var used = UsedOutputDevices();
+        return _config.KeepAwake.Where(kv => used.Contains(kv.Key))
+                                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Keep awake is on for this device, but no channel uses it, so no noise is playing.</summary>
+    public bool IsKeepAwakePaused(string deviceId) => IsKeepAwake(deviceId) && !UsedOutputDevices().Contains(deviceId);
+
     public double KeepAwakeLevel(string deviceId) =>
         _config.KeepAwake.TryGetValue(deviceId, out var db) ? db : DefaultKeepAwakeDb;
 
@@ -435,9 +450,6 @@ public sealed class ChannelManager : IDisposable
         if (message != null) _keepAwakeErrors[deviceId] = message;
         StateChanged?.Invoke();
     }
-
-    /// <summary>The real device an output channel plays on ("same as Game" resolved); null for Mic.</summary>
-    public string? OutputDeviceId(Channel channel) => channel == Channel.Mic ? null : EffectiveDeviceId(channel);
 
     // --- Noise removal (NVIDIA Broadcast) for Chat and Mic ---
 

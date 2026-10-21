@@ -67,9 +67,16 @@ public partial class MainWindow : Window
 
     private void Fill(ObservableCollection<DeviceItem> target, IReadOnlyList<DeviceInfo> devices)
     {
-        var items = devices.OrderByDescending(d => d.IsDefault).Select(d => new DeviceItem(d, _mixer.IsKeepAwake(d.Id))).ToList();
+        var items = devices.OrderByDescending(d => d.IsDefault)
+            .Select(d => new DeviceItem(d, _mixer.IsKeepAwake(d.Id), _mixer.KeepAwakeLevel(d.Id), _mixer.KeepAwakeError(d.Id),
+                                        _mixer.IsKeepAwakePaused(d.Id)))
+            .ToList();
         // Skip rebuilding the list (and redrawing the Devices tab) when nothing changed.
-        if (target.Count == items.Count && target.Zip(items).All(p => p.First.Info == p.Second.Info && p.First.KeepAwake == p.Second.KeepAwake))
+        if (target.Count == items.Count && target.Zip(items).All(p => p.First.Info == p.Second.Info &&
+                                                                      p.First.KeepAwake == p.Second.KeepAwake &&
+                                                                      p.First.KeepAwakeDb == p.Second.KeepAwakeDb &&
+                                                                      p.First.KeepAwakeError == p.Second.KeepAwakeError &&
+                                                                      p.First.KeepAwakePaused == p.Second.KeepAwakePaused))
             return;
         target.Clear();
         foreach (var item in items) target.Add(item);
@@ -84,6 +91,15 @@ public partial class MainWindow : Window
         if (on == _mixer.IsKeepAwake(device.Id)) return;
         _mixer.SetKeepAwake(device.Id, on);
         Report(on ? $"Keeping {device.Name} awake with quiet noise." : $"{device.Name} is no longer kept awake.");
+    }
+
+    /// <summary>Also fires when the list is filled, so only act on a real change of level.</summary>
+    private void KeepAwakeLevel_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox { Tag: DeviceItem device, SelectedValue: double db }) return;
+        if (!_mixer.IsKeepAwake(device.Id) || db == _mixer.KeepAwakeLevel(device.Id)) return;
+        _mixer.SetKeepAwake(device.Id, true, db);
+        Report($"{device.Name} keep-awake level: {NoiseLevel.All.First(l => l.Db == db).Label}.");
     }
 
     private void Report(string message) => StatusText.Text = message;
