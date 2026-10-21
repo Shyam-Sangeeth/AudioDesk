@@ -394,11 +394,11 @@
                             <StackPanel>
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right" Content="Balance" Margin="12,0,0,0" Click="ChatMixBalance_Click"
-                                            IsEnabled="{Binding ChatMix.IsUnbalanced}" ToolTip="Play Game and Chat at full volume" />
+                                            IsEnabled="{Binding ChatMix.CanBalance}" ToolTip="Play Game and Chat at full volume" />
                                     <TextBlock DockPanel.Dock="Right" Text="{Binding ChatMix.Text}" Style="{StaticResource SecondaryText}" VerticalAlignment="Center" />
                                     <TextBlock Text="ChatMix" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 </DockPanel>
-                                <Grid Margin="0,8,0,0">
+                                <Grid Margin="0,8,0,0" IsEnabled="{Binding ChatMix.IsEnabled}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
@@ -417,6 +417,9 @@
                                         <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource IconFont}" FontSize="16" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Grid>
+                                <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
+                                           Text="Available when Game and Chat both play on the headset (Chat directly or through NVIDIA Broadcast)."
+                                           Visibility="{Binding ChatMix.IsDisabled, Converter={StaticResource BoolToVisibility}}" />
                             </StackPanel>
                         </Border>
                     </Grid>

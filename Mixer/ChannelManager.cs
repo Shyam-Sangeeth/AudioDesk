@@ -608,11 +608,46 @@ public sealed class ChannelManager : IDisposable
         ApplyLevel(Channel.Chat);
     }
 
+    private bool? _chatMixActive;
+
+    /// <summary>ChatMix only applies while it's in effect (see <see cref="ChatMixApplies"/>); otherwise it's ignored.</summary>
+    public bool IsChatMixActive => _chatMixActive == true;
+
+    /// <summary>
+    /// ChatMix balances two things heard on the same headset, so it only makes sense when Game plays on the
+    /// headset and Chat does too, either directly or through NVIDIA Broadcast (which outputs to the headset).
+    /// </summary>
+    private bool ChatMixApplies()
+    {
+        string? headset = ProfileDeviceId(Profile.Headset);
+        if (headset == null) return false;
+        string? game = EffectiveDeviceId(Channel.Game);
+        string? chat = EffectiveDeviceId(Channel.Chat);
+        bool Same(string? a, string? b) => a != null && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        return Same(game, headset) && (Same(chat, headset) || Same(chat, BroadcastDeviceId(Channel.Chat)));
+    }
+
+    /// <summary>Re-checks whether ChatMix applies and re-levels Game and Chat when that changes.</summary>
+    private void UpdateChatMixState()
+    {
+        bool applies = ChatMixApplies();
+        if (_chatMixActive == applies) return;
+        bool first = _chatMixActive == null;
+        _chatMixActive = applies;
+        // At startup only touch app volumes if ChatMix actually changes something.
+        if (!first || _config.ChatMix != 0)
+        {
+            ApplyLevel(Channel.Game);
+            ApplyLevel(Channel.Chat);
+        }
+        StateChanged?.Invoke();
+    }
+
     /// <summary>Channel volume with ChatMix applied: moving toward Game turns Chat down, and the other way round.</summary>
     private float EffectiveVolume(Channel channel)
     {
         float volume = _config.Channels[channel].Volume;
-        float mix = _config.ChatMix;
+        float mix = IsChatMixActive ? _config.ChatMix : 0f;
         return channel switch
         {
             Channel.Game when mix > 0 => volume * (1 - mix),
@@ -757,6 +792,7 @@ public sealed class ChannelManager : IDisposable
         _knownPids = pids;
         LastError = error;
         Apps = apps;
+        UpdateChatMixState();
 
         // Apps that just started get their channel's volume (only needed when it isn't plain 100%),
         // and apps that were just moved get their new channel's volume.

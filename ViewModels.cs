@@ -102,13 +102,14 @@ public sealed class ChatMixViewModel(ChannelManager mixer, Action<string> report
             OnPropertyChanged();
             OnPropertyChanged(nameof(Text));
             OnPropertyChanged(nameof(IsUnbalanced));
+            OnPropertyChanged(nameof(CanBalance));
             if (_syncing) return;
             try { mixer.SetChatMix((float)(value / 100.0)); }
             catch (Exception ex) { report($"Couldn't change ChatMix: {ex.Message}"); }
         }
     }
 
-    public string Text => _value switch
+    public string Text => !_isEnabled ? "Off" : _value switch
     {
         0 => "Balanced",
         < 0 => $"Chat {100 + _value:0}%",
@@ -117,12 +118,37 @@ public sealed class ChatMixViewModel(ChannelManager mixer, Action<string> report
 
     public bool IsUnbalanced => _value != 0;
 
+    private bool _isEnabled;
+
+    /// <summary>Only while Game and Chat both play on the headset (Chat directly or through NVIDIA Broadcast).</summary>
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        private set
+        {
+            if (_isEnabled == value) return;
+            _isEnabled = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsDisabled));
+            OnPropertyChanged(nameof(CanBalance));
+            OnPropertyChanged(nameof(Text));
+        }
+    }
+
+    public bool IsDisabled => !_isEnabled;
+    public bool CanBalance => _isEnabled && IsUnbalanced;
+
     public void Center() => Value = 0;
 
     public void Sync()
     {
         _syncing = true;
-        try { Value = mixer.ChatMix * 100; }
+        try
+        {
+            Value = mixer.ChatMix * 100;
+            IsEnabled = mixer.IsChatMixActive;
+            OnPropertyChanged(nameof(CanBalance));
+        }
         finally { _syncing = false; }
     }
 }
