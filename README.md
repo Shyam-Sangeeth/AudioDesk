@@ -30,6 +30,7 @@
   - [Global shortcuts](#global-shortcuts)
   - [Devices tab](#devices-tab)
   - [Tray icon](#tray-icon)
+  - [Settings tab](#settings-tab)
 - [Setting up Discord](#setting-up-discord)
 - [How it works](#how-it-works)
 - [Settings file](#settings-file)
@@ -90,8 +91,8 @@ AudioDesk doesn't need administrator rights and doesn't install drivers.
 
 1. Build it (see [Building from source](#building-from-source)), or use an existing build.
 2. Run `publish\AudioDesk.exe`.
-3. To start it automatically: right-click the tray icon → **Start with Windows**. It then starts minimised to
-   the tray at sign-in.
+3. To start it automatically: **Settings** tab → **Start with Windows**. It then starts minimised to the tray at
+   sign-in.
 
 Only one copy runs at a time. Launching it again brings the existing window to the front.
 
@@ -298,10 +299,16 @@ Closing the window keeps AudioDesk running in the tray, so channels and shortcut
 - **Right-click:**
   - **Headset / Home Theater:** switch profile (the active one is ticked).
   - **Game / Chat / Media / Aux / Mic:** pick that channel's device.
-  - **Open AudioDesk**, **Start with Windows**, **Exit**.
+  - **Open AudioDesk**, **Exit**.
 
 Windows may put the icon in the hidden-icons area (**^** next to the clock). Drag it onto the taskbar to keep it
 visible.
+
+### Settings tab
+
+- **Start with Windows:** starts AudioDesk in the tray when you sign in, so channels, shortcuts and keep awake
+  work right away. (It adds AudioDesk to your Windows startup apps; you can also turn it off in
+  *Settings → Apps → Startup*.)
 
 ## Setting up Discord
 
@@ -415,7 +422,8 @@ AudioDesk/
 ├─ App.xaml(.cs)            Startup, single instance, tray, shortcuts, on-screen confirmations, --selftest
 ├─ MainWindow.xaml(.cs)     Mixer and Devices tabs, popups, drag-and-drop, shortcut recorder
 ├─ ViewModels.cs            Channel, ChatMix, profile and shortcut view models
-├─ TrayIcon.cs              Tray icon and its menu; Start with Windows
+├─ TrayIcon.cs              Tray icon and its menu
+├─ StartupSetting.cs        Start with Windows (per-user Run entry)
 ├─ HotkeyService.cs         System-wide shortcuts (RegisterHotKey)
 ├─ OsdWindow.cs             On-screen confirmation popup
 ├─ IconHelper.cs            App icon and app-icon lookup

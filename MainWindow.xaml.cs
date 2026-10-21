@@ -39,7 +39,7 @@ public partial class MainWindow : Window
 
         // Changes can be raised from inside a binding update; sync after it finishes.
         _mixer.StateChanged += QueueSync;
-        IsVisibleChanged += (_, _) => { if (IsVisible) QueueSync(); };
+        IsVisibleChanged += (_, _) => { if (IsVisible) { QueueSync(); LoadSettings(); } };
 
         // Level meters: run only while the window can be seen, and follow every app scan.
         _mixer.Scanned += () => _meters.SetMap(_mixer.BuildMeterMap());
@@ -210,6 +210,34 @@ public partial class MainWindow : Window
     }
 
     private void ChatMix_DoubleClick(object sender, MouseButtonEventArgs e) => ChatMix.Center();
+
+    // --- Settings tab ---
+
+    private bool _loadingSettings;
+
+    /// <summary>Shows the saved settings (read from Windows, in case they were changed elsewhere).</summary>
+    private void LoadSettings()
+    {
+        _loadingSettings = true;
+        try { StartWithWindowsBox.IsChecked = StartupSetting.Enabled; }
+        finally { _loadingSettings = false; }
+    }
+
+    private void StartWithWindows_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        bool on = StartWithWindowsBox.IsChecked == true;
+        try
+        {
+            StartupSetting.Enabled = on;
+            Report(on ? "AudioDesk will start in the tray when you sign in." : "AudioDesk won't start with Windows.");
+        }
+        catch (Exception ex)
+        {
+            Report($"Couldn't change Start with Windows: {ex.Message}");
+            LoadSettings();
+        }
+    }
 
     private void Profile_Click(object sender, RoutedEventArgs e)
     {

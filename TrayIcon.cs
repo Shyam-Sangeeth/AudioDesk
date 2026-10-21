@@ -1,5 +1,4 @@
 using AudioDesk.Mixer;
-using Microsoft.Win32;
 using Forms = System.Windows.Forms;
 
 namespace AudioDesk;
@@ -7,9 +6,6 @@ namespace AudioDesk;
 /// <summary>Tray icon: left-click opens the window, right-click picks each channel's device.</summary>
 internal sealed class TrayIcon : IDisposable
 {
-    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunValue = "AudioDesk";
-
     private readonly Forms.NotifyIcon _icon;
     private readonly ChannelManager _mixer;
     private readonly Action _open;
@@ -65,11 +61,6 @@ internal sealed class TrayIcon : IDisposable
         var open = new Forms.ToolStripMenuItem("Open AudioDesk", null, (_, _) => _open());
         open.Font = new System.Drawing.Font(open.Font, System.Drawing.FontStyle.Bold);
         menu.Items.Add(open);
-
-        var startup = new Forms.ToolStripMenuItem("Start with Windows") { Checked = StartsWithWindows };
-        startup.Click += (_, _) => StartsWithWindows = !StartsWithWindows;
-        menu.Items.Add(startup);
-
         menu.Items.Add(new Forms.ToolStripMenuItem("Exit", null, (_, _) => _exit()));
     }
 
@@ -103,21 +94,6 @@ internal sealed class TrayIcon : IDisposable
             _icon.Text = text.Length > 127 ? text[..127] : text;
         }
         catch { }
-    }
-
-    public static bool StartsWithWindows
-    {
-        get
-        {
-            using var key = Registry.CurrentUser.OpenSubKey(RunKey);
-            return key?.GetValue(RunValue) != null;
-        }
-        set
-        {
-            using var key = Registry.CurrentUser.CreateSubKey(RunKey);
-            if (value) key.SetValue(RunValue, $"\"{Environment.ProcessPath}\" --minimized");
-            else key.DeleteValue(RunValue, throwOnMissingValue: false);
-        }
     }
 
     public void Dispose()
