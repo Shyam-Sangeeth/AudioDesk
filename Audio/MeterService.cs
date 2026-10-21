@@ -29,6 +29,13 @@ public sealed class MeterService : IDisposable
     /// <summary>Raised on the meter thread with a level (0–1) for every channel.</summary>
     public event Action<IReadOnlyDictionary<Channel, float>>? LevelsChanged;
 
+    /// <summary>
+    /// Raised on the meter thread when the speakers an app feeds change: "Stereo", "5.1", "7.1" or "Mono" per
+    /// channel and process. Only for multichannel devices where Windows' per-app meters can tell (see
+    /// <see cref="AudioEffects.MayUpmix"/>); other apps aren't listed.
+    /// </summary>
+    public event Action<IReadOnlyDictionary<(Channel Channel, uint ProcessId), string>>? LayoutsChanged;
+
     public MeterService()
     {
         _thread = new Thread(Run) { IsBackground = true, Name = "AudioDesk meters" };
@@ -51,7 +58,9 @@ public sealed class MeterService : IDisposable
     {
         var sources = new Sources();
         var shown = Enum.GetValues<Channel>().ToDictionary(c => c, _ => 0f);
+        IReadOnlyDictionary<(Channel, uint), string> layouts = new Dictionary<(Channel, uint), string>();
         long lastBuild = 0;
+        int frame = 0;
 
         while (!_stopping)
         {
@@ -83,6 +92,17 @@ public sealed class MeterService : IDisposable
                     shown[channel] = Math.Max(peak, shown[channel] - Falloff);
                 }
                 LevelsChanged?.Invoke(new Dictionary<Channel, float>(shown));
+
+                // Speaker layouts change slowly; ~10 reads a second are plenty.
+                if (++frame % 3 == 0)
+                {
+                    var latest = sources.ReadLayouts();
+                    if (latest.Count != layouts.Count || latest.Any(p => layouts.GetValueOrDefault(p.Key) != p.Value))
+                    {
+                        layouts = latest;
+                        LayoutsChanged?.Invoke(latest);
+                    }
+                }
             }
             catch
             {
@@ -105,8 +125,14 @@ public sealed class MeterService : IDisposable
     /// <summary>The meters currently being read, all owned by the meter thread.</summary>
     private sealed class Sources
     {
+        // A speaker counts as fed if it had sound in the last few seconds, so quiet moments don't flip the tag.
+        private const float Heard = 0.0005f; // about -66 dB; speakers an app doesn't feed read exactly 0
+        private const long HoldMs = 5000;
+
         private readonly List<MMDevice> _devices = [];
         private readonly List<(Channel Channel, AudioMeterInformation Meter)> _meters = [];
+        private readonly List<(Channel Channel, uint Pid, int Speakers, AudioMeterInformation Meter)> _surround = [];
+        private readonly Dictionary<(Channel, uint), long[]> _lastHeard = [];
 
         public void Rebuild(ChannelMap? map)
         {
@@ -118,6 +144,10 @@ public sealed class MeterService : IDisposable
             {
                 _devices.Add(device);
                 bool isChatDevice = string.Equals(device.ID, map.ChatDeviceId, StringComparison.OrdinalIgnoreCase);
+                // Per-app meters see each stream in the device's own speaker layout, after any per-stream effect.
+                // An effect like the Dolby upmixer spreads stereo over all speakers, so skip those devices.
+                int speakers = device.AudioMeterInformation.PeakValues.Count;
+                bool readLayouts = speakers > 2 && !AudioEffects.MayUpmix(device.ID);
                 var sessions = device.AudioSessionManager.Sessions;
                 for (int i = 0; i < sessions.Count; i++)
                 {
@@ -127,8 +157,13 @@ public sealed class MeterService : IDisposable
                     // Discord-style voice on the Chat device counts as Chat (same rule as volume and ChatMix).
                     if (isChatDevice && map.VoiceProcesses.Contains(pid)) channel = Channel.Chat;
                     _meters.Add((channel, session.AudioMeterInformation));
+                    if (readLayouts) _surround.Add((channel, pid, speakers, session.AudioMeterInformation));
                 }
             }
+
+            // Forget apps that are gone.
+            foreach (var key in _lastHeard.Keys.Where(k => !_surround.Any(s => (s.Channel, s.Pid) == k)).ToList())
+                _lastHeard.Remove(key);
 
             if (map.MicDeviceId != null)
             {
@@ -146,9 +181,53 @@ public sealed class MeterService : IDisposable
             return peaks;
         }
 
+        public Dictionary<(Channel, uint), string> ReadLayouts()
+        {
+            long now = Environment.TickCount64;
+            foreach (var (channel, pid, speakers, meter) in _surround)
+            {
+                if (!_lastHeard.TryGetValue((channel, pid), out var heard))
+                    _lastHeard[(channel, pid)] = heard = new long[speakers];
+                try
+                {
+                    // A stream that was closed reports no channels until the next rebuild drops it.
+                    var peaks = meter.PeakValues;
+                    for (int i = 0; i < Math.Min(peaks.Count, heard.Length); i++)
+                        if (peaks[i] > Heard) heard[i] = now;
+                }
+                catch { }
+            }
+
+            var layouts = new Dictionary<(Channel, uint), string>();
+            foreach (var (key, heard) in _lastHeard)
+            {
+                string layout = Describe(heard, now);
+                if (layout.Length > 0) layouts[key] = layout;
+            }
+            return layouts;
+        }
+
+        /// <summary>Names the speakers fed recently, in Windows' order: FL, FR, FC, LFE, back L/R, side L/R.</summary>
+        private static string Describe(long[] heard, long now)
+        {
+            bool Fed(int speaker) => speaker < heard.Length && now - heard[speaker] < HoldMs;
+            var fed = Enumerable.Range(0, heard.Length).Where(Fed).ToList();
+            if (fed.Count == 0) return "";
+            if (fed is [2]) return "Mono"; // a mono stream goes to the centre speaker only
+            if (fed.All(s => s < 2)) return "Stereo";
+            if (heard.Length >= 8 && (Fed(6) || Fed(7))) return "7.1";
+            return heard.Length switch
+            {
+                4 => "4.0",
+                >= 6 => "5.1",
+                _ => $"{heard.Length} ch",
+            };
+        }
+
         public void Clear()
         {
             _meters.Clear();
+            _surround.Clear();
             foreach (var device in _devices)
             {
                 try { device.Dispose(); } catch { }

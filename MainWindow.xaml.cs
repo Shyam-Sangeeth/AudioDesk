@@ -48,6 +48,10 @@ public partial class MainWindow : Window
         _mixer.Scanned += () => _meters.SetMap(_mixer.BuildMeterMap());
         _mixer.StateChanged += () => _meters.SetMap(_mixer.BuildMeterMap());
         _meters.LevelsChanged += OnLevels;
+        _meters.LayoutsChanged += layouts => Dispatcher.BeginInvoke(() =>
+        {
+            foreach (var channel in Channels) channel.SetLayouts(layouts);
+        });
         IsVisibleChanged += (_, _) => UpdateMetersEnabled();
         StateChanged += (_, _) => UpdateMetersEnabled();
     }

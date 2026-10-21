@@ -71,8 +71,9 @@ public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false, double k
 /// <summary>One entry in a device drop-down. An empty id means "same as Game".</summary>
 public sealed record DeviceChoice(string Id, string Label, string Format = "");
 
-public sealed class AppChip(MixerApp app, ImageSource? icon, bool canMove, string badge = "")
+public sealed class AppChip(MixerApp app, ImageSource? icon, bool canMove, string badge = "") : ObservableObject
 {
+    private string _layout = "";
     public MixerApp App => app;
     public string Key => app.Key;
     public string Name => app.Name;
@@ -86,6 +87,32 @@ public sealed class AppChip(MixerApp app, ImageSource? icon, bool canMove, strin
     public string Tip => HasBadge
         ? $"{app.Name} plays its voice on the Chat device, so it follows Chat's volume and ChatMix. Its other sounds are in {app.Channel}."
         : $"{app.Name}: drag to another channel, or right-click.";
+
+    /// <summary>
+    /// The speakers this app fed in the last few seconds ("Stereo", "5.1", "7.1", "Mono"); empty on stereo devices,
+    /// on devices whose enhancements remix every stream, or while the app is silent.
+    /// </summary>
+    public string Layout
+    {
+        get => _layout;
+        set
+        {
+            if (value == _layout) return;
+            _layout = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasLayout));
+            OnPropertyChanged(nameof(LayoutTip));
+        }
+    }
+
+    public bool HasLayout => _layout.Length > 0;
+
+    public string LayoutTip => _layout switch
+    {
+        "Stereo" => $"{app.Name} is only playing on the front left and right speakers.",
+        "Mono" => $"{app.Name} is only playing on the centre speaker.",
+        _ => $"{app.Name} is playing {_layout} audio: sound reached the centre, subwoofer or surround speakers in the last few seconds.",
+    };
 }
 
 /// <summary>ChatMix slider: -100 = only Game, 0 = both at full volume, 100 = only Chat.</summary>
@@ -540,6 +567,33 @@ public sealed class ChannelViewModel : ObservableObject
         }
     }
 
+    private IReadOnlyDictionary<(Channel Channel, uint ProcessId), string> _layouts =
+        new Dictionary<(Channel, uint), string>();
+
+    /// <summary>Shows which speakers each app feeds (from <see cref="MeterService.LayoutsChanged"/>).</summary>
+    public void SetLayouts(IReadOnlyDictionary<(Channel Channel, uint ProcessId), string> layouts)
+    {
+        _layouts = layouts;
+        foreach (var chip in Apps) ApplyLayout(chip);
+    }
+
+    private void ApplyLayout(AppChip chip)
+    {
+        // An app with several processes (browsers) takes the widest layout any of them plays.
+        var found = chip.App.ProcessIds.Select(pid => _layouts.GetValueOrDefault((Channel, pid)) ?? "").ToList();
+        chip.Layout = found.OrderByDescending(LayoutRank).FirstOrDefault() ?? "";
+    }
+
+    private static int LayoutRank(string layout) => layout switch
+    {
+        "" => 0,
+        "Mono" => 1,
+        "Stereo" => 2,
+        "7.1" => 5,
+        "5.1" => 4,
+        _ => 3,
+    };
+
     public void SetMeter(float level)
     {
         double volume = _volume / 100.0;
@@ -655,7 +709,9 @@ public sealed class ChannelViewModel : ObservableObject
                 foreach (var app in apps)
                 {
                     bool voiceOnly = app.Channel != Channel && !IsMic;
-                    Apps.Add(new AppChip(app, IconHelper.ForExecutable(app.ExePath), canMove: !IsMic && !voiceOnly, badge: voiceOnly ? "Voice" : ""));
+                    var chip = new AppChip(app, IconHelper.ForExecutable(app.ExePath), canMove: !IsMic && !voiceOnly, badge: voiceOnly ? "Voice" : "");
+                    ApplyLayout(chip);
+                    Apps.Add(chip);
                 }
             }
         }

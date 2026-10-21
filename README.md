@@ -138,6 +138,12 @@ In each card:
   which is applied in 32-bit float inside the audio engine, so it doesn't reduce quality. For Mic it sets the
   microphone level.
 - **Apps:** the apps in this channel. A green dot means the app is playing right now.
+- **Speaker tag:** on a surround device, each app shows which speakers it's feeding: **Stereo** (front left and
+  right only), **5.1** or **7.1** (sound reached the centre, subwoofer or surround speakers), or **Mono** (centre
+  only). It covers the last few seconds, so quiet moments don't flip it, and disappears when the app goes silent.
+  Use it to check whether a game really outputs surround. It isn't shown on stereo devices, or on devices with
+  audio enhancements that remix every app (such as a Dolby or Realtek upmixer), because there stereo already
+  reaches every speaker before AudioDesk can see it.
 
 **When a device disappears** (unplugged, or NVIDIA Broadcast closed), Chat, Media and Aux keep working: the
 channel temporarily uses the device it used before noise removal, otherwise your headset, otherwise Game's
@@ -417,6 +423,9 @@ mixer → Reset*.
 - **Undocumented Windows APIs.** Per-app routing and default-device switching use interfaces that Windows itself
   uses but doesn't document. They've been stable for years, but a future Windows update could change them.
 - **Some apps ignore per-app routing,** namely those that choose a specific output device themselves.
+- **No per-app format.** Windows converts every app to the device's format before anything outside the app can
+  see it, so AudioDesk can't show an app's own sample rate or bit depth (most apps already send audio at the
+  device's rate). The speaker tag is the part it can show.
 - Settings key apps by process name, so two different programs with the same executable name share a channel.
 
 ## Building from source
@@ -473,7 +482,8 @@ AudioDesk/
 ├─ Audio/
 │  ├─ AudioService.cs       Devices (cached), formats, audio sessions, session/device volume
 │  ├─ KeepAwakeService.cs   Quiet noise streams that keep receivers/soundbars awake
-│  ├─ MeterService.cs       Live per-channel level meters (background thread, ~30 updates/s)
+│  ├─ MeterService.cs       Live per-channel level meters and per-app speaker tags (background thread)
+│  ├─ AudioEffects.cs       Detects enhancements that remix each stream (so speaker tags would mislead)
 │  └─ Interop.cs            IPolicyConfig (default devices), IAudioPolicyConfigFactory (per-app routing)
 ├─ Mixer/
 │  ├─ ChannelManager.cs     Channels, routing enforcement, profiles, ChatMix, noise removal, settings file

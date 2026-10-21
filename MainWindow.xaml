@@ -74,6 +74,11 @@
                     <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,0,6,0" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border CornerRadius="4" Padding="5,0" Margin="0,0,6,0" ToolTip="{Binding LayoutTip}"
+                                Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+                                Visibility="{Binding HasLayout, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding Layout}" FontSize="11" Style="{StaticResource SecondaryText}" />
+                        </Border>
                         <Border CornerRadius="4" Padding="5,0" Margin="0,0,6,0" BorderThickness="1"
                                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                 Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
