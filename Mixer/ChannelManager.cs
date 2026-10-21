@@ -664,17 +664,15 @@ public sealed class ChannelManager : IDisposable
     public bool IsChatMixActive => _chatMixActive == true;
 
     /// <summary>
-    /// ChatMix balances two things heard on the same headset, so it only makes sense when Game plays on the
-    /// headset and Chat does too, either directly or through NVIDIA Broadcast (which outputs to the headset).
+    /// ChatMix balances two things heard together, so it applies when Game and Chat play on the same device, or
+    /// when Chat goes through NVIDIA Broadcast (which outputs to whatever device you listen on).
     /// </summary>
     private bool ChatMixApplies()
     {
-        string? headset = ProfileDeviceId(Profile.Headset);
-        if (headset == null) return false;
         string? game = EffectiveDeviceId(Channel.Game);
         string? chat = EffectiveDeviceId(Channel.Chat);
         bool Same(string? a, string? b) => a != null && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
-        return Same(game, headset) && (Same(chat, headset) || Same(chat, BroadcastDeviceId(Channel.Chat)));
+        return game != null && (Same(chat, game) || Same(chat, BroadcastDeviceId(Channel.Chat)));
     }
 
     /// <summary>Re-checks whether ChatMix applies and re-levels Game and Chat when that changes.</summary>

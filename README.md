@@ -174,10 +174,11 @@ The **ChatMix** card sits under the Game and Chat channels.
 
 ChatMix combines with each channel's own volume slider.
 
-ChatMix balances two things you hear on the same headset, so it's only **available when Game plays on the
-headset and Chat does too**, either directly or through NVIDIA Broadcast's speakers. Otherwise (for example with
-Game on the home theater) the card shows **Off**, the slider is disabled, and ChatMix has no effect; your slider
-position is kept for when it's available again.
+ChatMix balances two things you hear together, so it's only **available when Game and Chat play on the same
+device** (any headset or speakers), **or when Chat goes through NVIDIA Broadcast's speakers**, whatever device
+Game uses. Otherwise (for example with Game on the home theater and Chat directly on the headset) the card shows
+**Off**, the slider is disabled, and ChatMix has no effect; your slider position is kept for when it's available
+again.
 
 ### Profiles: Headset and Home Theater
 

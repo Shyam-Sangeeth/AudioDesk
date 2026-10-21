@@ -447,7 +447,7 @@
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
-                                           Text="Available when Game and Chat both play on the headset (Chat directly or through NVIDIA Broadcast)."
+                                           Text="Available when Game and Chat play on the same device, or when Chat goes through NVIDIA Broadcast."
                                            Visibility="{Binding ChatMix.IsDisabled, Converter={StaticResource BoolToVisibility}}" />
                             </StackPanel>
                         </Border>
