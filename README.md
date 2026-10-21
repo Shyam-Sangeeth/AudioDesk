@@ -229,6 +229,9 @@ pause a video for a while and press play.
 **Keep device awake** fixes this by playing very quiet white noise to the device, so the signal never stops.
 Turn it on with the **Keep awake** checkbox on the [Devices tab](#devices-tab), and pick the level next to it.
 
+While the noise is playing, a small green wave (∿) appears after the device's format, both on the channels that
+use it and on the Devices tab.
+
 The noise only plays while a channel (Game, Chat, Media or Aux) is using the device. With the Headset profile
 active, a kept-awake home theater gets no noise; switch to Home Theater and it starts automatically. While it's
 waiting, the device's card says *Keep awake is paused: no channel uses this device*.

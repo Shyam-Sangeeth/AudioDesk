@@ -12,6 +12,9 @@
         <local:InverseBooleanConverter x:Key="Not" />
         <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
+        <!-- One and a half sine waves: the "keep-awake noise is playing" mark after a device's format. -->
+        <Geometry x:Key="WaveGlyph">M0,4 C1.5,0 3.5,0 5,4 C6.5,8 8.5,8 10,4 C11.5,0 13.5,0 15,4</Geometry>
+
         <Style x:Key="SecondaryText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
@@ -161,8 +164,15 @@
                         </ProgressBar.Style>
                     </ProgressBar>
 
-                    <TextBlock DockPanel.Dock="Top" Margin="2,3,0,0" FontSize="12" Text="{Binding Format}"
-                               Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2,3,0,0">
+                        <TextBlock FontSize="12" Text="{Binding Format}" Style="{StaticResource SecondaryText}" />
+                        <!-- Keep-awake noise is playing on this device. -->
+                        <Path Data="{StaticResource WaveGlyph}" Width="16" Height="8" Margin="6,1,0,0" Stretch="Uniform"
+                              VerticalAlignment="Center" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Stroke="{DynamicResource SystemFillColorSuccessBrush}" Fill="Transparent"
+                              ToolTip="Keep awake is on: quiet noise is playing so this device doesn't fall asleep."
+                              Visibility="{Binding IsKeepAwakePlaying, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
                     <!-- Shown while the saved device is missing and a stand-in is used; it switches back by itself. -->
                     <TextBlock DockPanel.Dock="Top" Margin="2,2,0,0" FontSize="11" TextWrapping="Wrap"
                                Foreground="{DynamicResource SystemFillColorCautionBrush}"
@@ -239,7 +249,15 @@
                                 <TextBlock Text="Virtual" FontSize="11" Style="{StaticResource SecondaryText}" />
                             </Border>
                         </StackPanel>
-                        <TextBlock Text="{Binding Format}" Style="{StaticResource SecondaryText}" Margin="0,2,0,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                            <TextBlock Text="{Binding Format}" Style="{StaticResource SecondaryText}" />
+                            <!-- Keep-awake noise is playing on this device. -->
+                            <Path Data="{StaticResource WaveGlyph}" Width="16" Height="8" Margin="6,1,0,0" Stretch="Uniform"
+                                  VerticalAlignment="Center" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Stroke="{DynamicResource SystemFillColorSuccessBrush}" Fill="Transparent"
+                                  ToolTip="Keep awake is on: quiet noise is playing so this device doesn't fall asleep."
+                                  Visibility="{Binding KeepAwakePlaying, Converter={StaticResource BoolToVisibility}}" />
+                        </StackPanel>
                         <TextBlock Text="Keep awake is paused: no channel uses this device." FontSize="12" Margin="0,2,0,0"
                                    Style="{StaticResource SecondaryText}"
                                    Visibility="{Binding KeepAwakePaused, Converter={StaticResource BoolToVisibility}}" />

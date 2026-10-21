@@ -466,6 +466,10 @@ public sealed class ChannelManager : IDisposable
                                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>Keep-awake noise is playing on this device right now (on, used by a channel, and not failing).</summary>
+    public bool IsKeepAwakePlaying(string? deviceId) =>
+        deviceId != null && ActiveKeepAwake().ContainsKey(deviceId) && KeepAwakeError(deviceId) == null;
+
     /// <summary>Keep awake is on for this device, but no channel uses it, so no noise is playing.</summary>
     public bool IsKeepAwakePaused(string deviceId) => IsKeepAwake(deviceId) && !UsedOutputDevices().Contains(deviceId);
 

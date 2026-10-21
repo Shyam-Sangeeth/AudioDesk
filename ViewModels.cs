@@ -35,6 +35,9 @@ public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false, double k
 
     /// <summary>Keep awake is on, but no channel uses this device, so no noise is playing.</summary>
     public bool KeepAwakePaused => keepAwakePaused;
+
+    /// <summary>Keep-awake noise is playing on this device right now.</summary>
+    public bool KeepAwakePlaying => keepAwake && !keepAwakePaused && string.IsNullOrEmpty(keepAwakeError);
     public double KeepAwakeDb => keepAwakeDb;
     public string? KeepAwakeError => keepAwakeError;
     public bool HasKeepAwakeError => !string.IsNullOrEmpty(keepAwakeError);
@@ -407,6 +410,20 @@ public sealed class ChannelViewModel : ObservableObject
 
     public string SettingsTitle => $"{Title} settings";
 
+    private bool _isKeepAwakePlaying;
+
+    /// <summary>Keep-awake noise is playing on this channel's device (shown as a small symbol after the format).</summary>
+    public bool IsKeepAwakePlaying
+    {
+        get => _isKeepAwakePlaying;
+        private set
+        {
+            if (_isKeepAwakePlaying == value) return;
+            _isKeepAwakePlaying = value;
+            OnPropertyChanged();
+        }
+    }
+
     private double _meter;
 
     /// <summary>
@@ -511,6 +528,7 @@ public sealed class ChannelViewModel : ObservableObject
             OnPropertyChanged(nameof(DeviceName));
             IsSwitching = _mixer.IsSwitching(Channel);
             IsUsingFallback = _mixer.IsUsingFallback(Channel);
+            IsKeepAwakePlaying = !IsMic && _mixer.IsKeepAwakePlaying(_mixer.DeviceId(Channel));
 
             foreach (var shortcut in Shortcuts) shortcut.Sync(_mixer);
 
