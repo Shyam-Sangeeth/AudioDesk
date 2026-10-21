@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- Only for the tray icon (NotifyIcon). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>AudioDesk</AssemblyName>
+    <RootNamespace>AudioDesk</RootNamespace>
+    <!-- WPF Fluent theme (ThemeMode) is still marked experimental. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+    <!-- Explorer, taskbar and Start icon. Regenerate with Assets\make-icons.ps1. -->
+    <ApplicationIcon>Assets\AudioDesk.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\AudioDesk.ico" />
+    <Resource Include="Assets\logo-64.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Keep WinForms types out of the global usings so they don't clash with WPF names. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+  </ItemGroup>
+
+</Project>

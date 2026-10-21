@@ -1,0 +1,418 @@
+﻿<Window x:Class="AudioDesk.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:AudioDesk"
+        Title="AudioDesk"
+        Icon="Assets/AudioDesk.ico"
+        Width="1240" Height="760" MinWidth="1060" MinHeight="560"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <local:InverseBooleanConverter x:Key="Not" />
+        <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <Style x:Key="SecondaryText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style x:Key="Badge" TargetType="Border">
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- A shortcut row: click the box, then press the keys. Esc cancels, Backspace clears. -->
+        <DataTemplate x:Key="ShortcutRow">
+            <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBlock Text="{Binding Label}" />
+                    <TextBlock Text="{Binding Error}" FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                               Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+                <Button Grid.Column="1" HorizontalAlignment="Stretch" Content="{Binding ButtonText}" Tag="{Binding}"
+                        ToolTip="Click, then press the keys. Esc cancels, Backspace removes."
+                        Click="Shortcut_Click" PreviewKeyDown="Shortcut_KeyDown" LostKeyboardFocus="Shortcut_LostFocus" />
+                <Button Grid.Column="2" Width="30" Height="30" Padding="0" Margin="4,0,0,0" Tag="{Binding}"
+                        ToolTip="Remove shortcut" Click="ShortcutClear_Click"
+                        Visibility="{Binding HasHotkey, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="11" />
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <!-- An app inside a channel: drag it to another channel, or right-click to move it. -->
+        <DataTemplate x:Key="AppChipTemplate">
+            <Border Margin="0,0,0,6" Padding="8,6" CornerRadius="6" ToolTip="{Binding Tip}"
+                    Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                    PreviewMouseLeftButtonDown="Chip_MouseDown" PreviewMouseMove="Chip_MouseMove">
+                <Border.ContextMenu>
+                    <ContextMenu IsEnabled="{Binding CanMove}">
+                        <MenuItem Header="Move to Game" Tag="Game" Click="MoveTo_Click" />
+                        <MenuItem Header="Move to Chat" Tag="Chat" Click="MoveTo_Click" />
+                        <MenuItem Header="Move to Media" Tag="Media" Click="MoveTo_Click" />
+                        <MenuItem Header="Move to Aux" Tag="Aux" Click="MoveTo_Click" />
+                    </ContextMenu>
+                </Border.ContextMenu>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image Source="{Binding Icon}" Width="20" Height="20" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,0,6,0" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border CornerRadius="4" Padding="5,0" Margin="0,0,6,0" BorderThickness="1"
+                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding Badge}" FontSize="11" Style="{StaticResource SecondaryText}" />
+                        </Border>
+                        <Ellipse Width="8" Height="8" VerticalAlignment="Center"
+                                 Fill="{DynamicResource SystemFillColorSuccessBrush}"
+                                 Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisibility}}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ChannelCard">
+            <Border Margin="0,0,10,0" Padding="14" CornerRadius="8" BorderThickness="1"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    AllowDrop="{Binding AcceptsApps}" Tag="{Binding}"
+                    DragOver="Channel_DragOver" Drop="Channel_Drop">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top">
+                        <!-- Settings: the toggle opens a popup; it ignores clicks while the popup is open so
+                             the click that closes the popup doesn't immediately reopen it. -->
+                        <ToggleButton x:Name="SettingsButton" DockPanel.Dock="Right" Width="32" Height="32" Padding="0"
+                                      ToolTip="{Binding SettingsTitle}"
+                                      IsHitTestVisible="{Binding IsOpen, ElementName=SettingsPopup, Converter={StaticResource Not}}">
+                            <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14" />
+                        </ToggleButton>
+                        <Popup x:Name="SettingsPopup" PlacementTarget="{Binding ElementName=SettingsButton}" Placement="Custom"
+                               CustomPopupPlacementCallback="{x:Static local:PopupPlacement.BelowRightAligned}"
+                               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+                               IsOpen="{Binding IsChecked, ElementName=SettingsButton, Mode=TwoWay}">
+                            <Border Width="340" Margin="8" Padding="16" CornerRadius="8" BorderThickness="1"
+                                    Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                    BorderBrush="{DynamicResource SurfaceStrokeColorFlyoutBrush}">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.35" />
+                                </Border.Effect>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding SettingsTitle}" FontSize="15" FontWeight="SemiBold" />
+
+                                    <TextBlock Text="Device" FontSize="12" Margin="0,14,0,2" Style="{StaticResource SecondaryText}" />
+                                    <TextBlock Text="{Binding DeviceName}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Format}" FontSize="12" Margin="0,2,0,0" Style="{StaticResource SecondaryText}" />
+
+                                    <!-- Only on Chat and Mic, and only when NVIDIA Broadcast is installed. -->
+                                    <CheckBox Margin="0,16,0,0" IsChecked="{Binding NoiseRemoval, Mode=TwoWay}"
+                                              Visibility="{Binding NoiseRemovalAvailable, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel>
+                                            <TextBlock Text="Noise removal" />
+                                            <TextBlock Text="Cleans this channel's audio with NVIDIA Broadcast" FontSize="11"
+                                                       TextWrapping="Wrap" Style="{StaticResource SecondaryText}" />
+                                        </StackPanel>
+                                    </CheckBox>
+
+                                    <!-- Global shortcuts: click a box, then press the keys. Esc cancels, Backspace clears. -->
+                                    <TextBlock Text="Shortcuts" FontSize="12" Margin="0,16,0,6" Style="{StaticResource SecondaryText}" />
+                                    <ItemsControl ItemsSource="{Binding Shortcuts}" ItemTemplate="{StaticResource ShortcutRow}" />
+
+                                    <Button Content="Windows sound settings" Margin="0,10,0,0" HorizontalAlignment="Left"
+                                            Tag="{Binding}" Click="SoundSettings_Click" />
+                                </StackPanel>
+                            </Border>
+                        </Popup>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="18" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <ComboBox DockPanel.Dock="Top" Margin="0,12,0,0" HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Choices}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                              SelectedValue="{Binding DeviceId, Mode=TwoWay}"
+                              ToolTip="{Binding SelectedItem.Label, RelativeSource={RelativeSource Self}}" />
+
+                    <TextBlock DockPanel.Dock="Top" Margin="2,6,0,0" FontSize="12" Text="{Binding FormatLine}"
+                               Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
+                    <!-- Loader while this channel's device is switching. Hidden (not collapsed) keeps its
+                         space reserved, so the card doesn't jump when it appears. -->
+                    <ProgressBar DockPanel.Dock="Top" Margin="2,4,0,0" Height="3" IsIndeterminate="True">
+                        <ProgressBar.Style>
+                            <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
+                                <Setter Property="Visibility" Value="Hidden" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSwitching}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ProgressBar.Style>
+                    </ProgressBar>
+
+                    <Grid DockPanel.Dock="Top" Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ToggleButton Width="32" Height="32" Padding="0" ToolTip="Mute" IsChecked="{Binding IsMuted, Mode=TwoWay}">
+                            <TextBlock Text="{Binding MuteGlyph}" FontFamily="{StaticResource IconFont}" FontSize="14" />
+                        </ToggleButton>
+                        <Slider Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center" Minimum="0" Maximum="100"
+                                IsMoveToPointEnabled="True" Value="{Binding Volume, Mode=TwoWay}" />
+                        <TextBlock Grid.Column="2" Width="36" TextAlignment="Right" VerticalAlignment="Center" Text="{Binding VolumeText}" />
+                    </Grid>
+
+                    <TextBlock DockPanel.Dock="Top" Text="Apps" FontSize="12" Margin="0,16,0,6" Style="{StaticResource SecondaryText}" />
+
+                    <Grid>
+                        <TextBlock Text="{Binding EmptyHint}" Margin="0,12,0,0" HorizontalAlignment="Center" TextWrapping="Wrap"
+                                   TextAlignment="Center" Style="{StaticResource SecondaryText}"
+                                   Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Apps}" ItemTemplate="{StaticResource AppChipTemplate}" />
+                        </ScrollViewer>
+                    </Grid>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="DeviceCard">
+            <Border Margin="0,0,0,8" Padding="16,12" CornerRadius="8" BorderThickness="1"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="22"
+                               VerticalAlignment="Center" Margin="0,0,16,0" />
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <Border Style="{StaticResource Badge}" Background="{DynamicResource AccentFillColorDefaultBrush}"
+                                    Visibility="{Binding IsDefault, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Default" FontSize="11" Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
+                            </Border>
+                            <Border Style="{StaticResource Badge}" BorderThickness="1" BorderBrush="{DynamicResource AccentFillColorDefaultBrush}"
+                                    Visibility="{Binding IsCommunications, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Calls" FontSize="11" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                            </Border>
+                            <Border Style="{StaticResource Badge}" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                    Visibility="{Binding IsVirtual, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Virtual" FontSize="11" Style="{StaticResource SecondaryText}" />
+                            </Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Format}" Style="{StaticResource SecondaryText}" Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Use for calls" Margin="0,0,8,0" Tag="{Binding}" Click="MakeCommunications_Click"
+                                Visibility="{Binding CanMakeCommunications, Converter={StaticResource BoolToVisibility}}" />
+                        <Button Content="Make default" Tag="{Binding}" Click="MakeDefault_Click"
+                                Style="{DynamicResource AccentButtonStyle}" IsEnabled="{Binding CanMakeDefault}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Margin="24,16,24,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal">
+            <Image Source="Assets/logo-64.png" Width="34" Height="34" VerticalAlignment="Center" Margin="0,0,12,0"
+                   RenderOptions.BitmapScalingMode="HighQuality" />
+            <TextBlock Text="AudioDesk" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <Border x:Name="SonarBanner" Grid.Row="1" Margin="0,12,0,0" Padding="14,10" CornerRadius="6" BorderThickness="1"
+                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Visibility="Collapsed">
+            <TextBlock TextWrapping="Wrap"
+                       Text="SteelSeries Sonar is running. It routes apps to its own virtual devices and will fight AudioDesk over them. Quit Sonar (or turn it off in SteelSeries GG) while you use AudioDesk." />
+        </Border>
+
+        <TabControl Grid.Row="2" Margin="0,12,0,0">
+            <TabItem Header="Mixer">
+                <DockPanel Margin="0,12,0,0">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <!-- Profiles: the active one is shown as an accent button. -->
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                            <TextBlock Text="Profile" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource SecondaryText}" />
+
+                            <Button Tag="Headset" Click="Profile_Click" Padding="12,6" ToolTip="{Binding Profiles.HeadsetTip}"
+                                    Style="{DynamicResource AccentButtonStyle}"
+                                    Visibility="{Binding Profiles.IsHeadset, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7F6;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Headset" />
+                                </StackPanel>
+                            </Button>
+                            <Button Tag="Headset" Click="Profile_Click" Padding="12,6" ToolTip="{Binding Profiles.HeadsetTip}"
+                                    Visibility="{Binding Profiles.IsNotHeadset, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7F6;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Headset" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Tag="HomeTheater" Click="Profile_Click" Padding="12,6" Margin="6,0,0,0" ToolTip="{Binding Profiles.HomeTheaterTip}"
+                                    Style="{DynamicResource AccentButtonStyle}"
+                                    Visibility="{Binding Profiles.IsHomeTheater, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7F4;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Home Theater" />
+                                </StackPanel>
+                            </Button>
+                            <Button Tag="HomeTheater" Click="Profile_Click" Padding="12,6" Margin="6,0,0,0" ToolTip="{Binding Profiles.HomeTheaterTip}"
+                                    Visibility="{Binding Profiles.IsNotHomeTheater, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE7F4;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Home Theater" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Which device each profile uses. -->
+                            <ToggleButton x:Name="ProfileSettingsButton" Width="32" Height="32" Padding="0" Margin="6,0,0,0"
+                                          ToolTip="Profile devices"
+                                          IsHitTestVisible="{Binding IsOpen, ElementName=ProfileSettingsPopup, Converter={StaticResource Not}}">
+                                <TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" FontSize="14" />
+                            </ToggleButton>
+                            <Popup x:Name="ProfileSettingsPopup" PlacementTarget="{Binding ElementName=ProfileSettingsButton}" Placement="Bottom"
+                                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+                                   IsOpen="{Binding IsChecked, ElementName=ProfileSettingsButton, Mode=TwoWay}">
+                                <Border Width="340" Margin="8" Padding="16" CornerRadius="8" BorderThickness="1"
+                                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                        BorderBrush="{DynamicResource SurfaceStrokeColorFlyoutBrush}">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.35" />
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <TextBlock Text="Profile devices" FontSize="15" FontWeight="SemiBold" />
+
+                                        <TextBlock Text="Headset" FontSize="12" Margin="0,14,0,4" Style="{StaticResource SecondaryText}" />
+                                        <ComboBox ItemsSource="{Binding Profiles.Choices}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                                                  SelectedValue="{Binding Profiles.HeadsetDeviceId, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Game, Media and Aux play here; Chat isn't changed." FontSize="11" Margin="0,4,0,0" Style="{StaticResource SecondaryText}" />
+
+                                        <TextBlock Text="Home Theater" FontSize="12" Margin="0,14,0,4" Style="{StaticResource SecondaryText}" />
+                                        <ComboBox ItemsSource="{Binding Profiles.Choices}" DisplayMemberPath="Label" SelectedValuePath="Id"
+                                                  SelectedValue="{Binding Profiles.HomeTheaterDeviceId, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+                                        <TextBlock Text="Game, Media and Aux play here; Chat and Mic stay on the headset." FontSize="11" Margin="0,4,0,0"
+                                                   TextWrapping="Wrap" Style="{StaticResource SecondaryText}" />
+
+                                        <TextBlock Text="Shortcuts" FontSize="12" Margin="0,16,0,6" Style="{StaticResource SecondaryText}" />
+                                        <ItemsControl ItemsSource="{Binding Profiles.Shortcuts}" ItemTemplate="{StaticResource ShortcutRow}" />
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </StackPanel>
+
+                        <!-- Loader while any device switch is in progress. -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="24,0,0,0"
+                                    Visibility="{Binding Busy.IsBusy, Converter={StaticResource BoolToVisibility}}">
+                            <ProgressBar Width="140" Height="4" IsIndeterminate="True" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <TextBlock Text="{Binding Busy.Text}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12" TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
+                               Text="Drag apps between channels, or right-click an app. Apps you haven't moved play on Game." />
+
+                    <!-- Five equal columns, matching the channel cards, so ChatMix sits exactly under Game and Chat. -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ItemsControl Grid.ColumnSpan="5" ItemsSource="{Binding Channels}" ItemTemplate="{StaticResource ChannelCard}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
+                        <!-- ChatMix: balance Game against Chat, like Sonar. Double-click the slider to center it. -->
+                        <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,10,0" Padding="14,10" CornerRadius="8" BorderThickness="1"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Balance" Margin="12,0,0,0" Click="ChatMixBalance_Click"
+                                            IsEnabled="{Binding ChatMix.IsUnbalanced}" ToolTip="Play Game and Chat at full volume" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ChatMix.Text}" Style="{StaticResource SecondaryText}" VerticalAlignment="Center" />
+                                    <TextBlock Text="ChatMix" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </DockPanel>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource IconFont}" FontSize="16" VerticalAlignment="Center" />
+                                        <TextBlock Text="Game" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <Slider Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Minimum="-100" Maximum="100"
+                                            TickFrequency="50" TickPlacement="BottomRight" IsMoveToPointEnabled="True"
+                                            Value="{Binding ChatMix.Value, Mode=TwoWay}" MouseDoubleClick="ChatMix_DoubleClick"
+                                            ToolTip="Slide toward Game to turn Chat down, toward Chat to turn Game down. Double-click to center." />
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Chat" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource IconFont}" FontSize="16" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Devices">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,4,0">
+                    <StackPanel>
+                        <TextBlock Text="Playback" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
+                        <ItemsControl ItemsSource="{Binding Outputs}" ItemTemplate="{StaticResource DeviceCard}" />
+                        <TextBlock Text="Recording" FontSize="16" FontWeight="SemiBold" Margin="0,16,0,8" />
+                        <ItemsControl ItemsSource="{Binding Inputs}" ItemTemplate="{StaticResource DeviceCard}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,10,0,0" Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
+    </Grid>
+</Window>
