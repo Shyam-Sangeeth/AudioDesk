@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using AudioDesk.Audio;
 using AudioDesk.Mixer;
 using NAudio.CoreAudioApi;
@@ -61,8 +62,11 @@ public partial class MainWindow : Window
         Fill(Outputs, _audio.GetDevices(DataFlow.Render));
         Fill(Inputs, _audio.GetDevices(DataFlow.Capture));
         SonarBanner.Visibility = Process.GetProcessesByName("SteelSeriesSonar").Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        if (_mixer.LastError != null) StatusText.Text = _mixer.LastError;
-        else if (!AppRouting.IsSupported) StatusText.Text = "Per-app routing isn't available on this Windows build, so apps can't be moved between devices.";
+        // Show problems once when they appear (not on every sync, or they'd never fade out).
+        string? problem = _mixer.LastError ?? (AppRouting.IsSupported ? null
+            : "Per-app routing isn't available on this Windows build, so apps can't be moved between devices.");
+        if (problem != null && problem != _lastProblem) Report(problem);
+        _lastProblem = problem;
     }
 
     private void Fill(ObservableCollection<DeviceItem> target, IReadOnlyList<DeviceInfo> devices)
@@ -102,7 +106,25 @@ public partial class MainWindow : Window
         Report($"{device.Name} keep-awake level: {NoiseLevel.All.First(l => l.Db == db).Label}.");
     }
 
-    private void Report(string message) => StatusText.Text = message;
+    private string? _lastProblem;
+    private DispatcherTimer? _statusTimer;
+
+    /// <summary>Shows a message in the status line; it clears itself 5 seconds after the latest message.</summary>
+    private void Report(string message)
+    {
+        StatusText.Text = message;
+        if (_statusTimer == null)
+        {
+            _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            _statusTimer.Tick += (_, _) =>
+            {
+                _statusTimer.Stop();
+                StatusText.Text = "";
+            };
+        }
+        _statusTimer.Stop();
+        _statusTimer.Start();
+    }
 
     // --- Moving apps between channels ---
 
