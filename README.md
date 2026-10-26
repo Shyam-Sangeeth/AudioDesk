@@ -95,7 +95,8 @@ of its own.
 - **SteelSeries Sonar** (in SteelSeries GG, **Classic** mode) for the Sonar features. Without it, AudioDesk still
   routes every channel straight to your devices.
 
-AudioDesk doesn't need administrator rights and doesn't install drivers.
+Installing needs administrator rights (AudioDesk installs for all users, into Program Files); AudioDesk itself runs
+without them and doesn't install drivers.
 
 ## Installing and running
 
@@ -103,13 +104,17 @@ AudioDesk doesn't need administrator rights and doesn't install drivers.
 [latest release](https://github.com/Shyam-Sangeeth/AudioDesk/releases/latest) and run it (or build it yourself, see
 [Building the installer](#building-the-installer)).
 
-- Installs for your account only, so there's no admin prompt, into `%LocalAppData%\Programs\AudioDesk`.
+- Installs for all users into `C:\Program Files\AudioDesk`, so Windows asks for administrator rights. The
+  **Destination Folder** page lets you choose another folder or drive with **Change...**.
 - Adds a Start menu shortcut and an entry in **Settings → Apps** (for uninstalling).
 - The welcome screen has **"Start AudioDesk when Windows starts"**: ticked for new installs; when upgrading it
   keeps your current choice.
-- Starts AudioDesk when it finishes.
-- **Upgrading:** use **Settings → Updates** in AudioDesk, or run a newer installer. It closes AudioDesk, replaces
-  it and starts it again; your settings stay.
+- Starts AudioDesk when it finishes (as you, not with the installer's administrator rights).
+- **Upgrading:** use **Settings → Updates** in AudioDesk, or run a newer installer. It installs into the folder you
+  chose last time, closes AudioDesk, replaces it and starts it again; your settings stay. Windows asks for
+  administrator rights each time.
+- **From 1.0.0 or 1.0.1:** those versions installed for your account only, into `%LocalAppData%\Programs\AudioDesk`.
+  Uninstall that copy first (Settings → Apps → AudioDesk), then run the new installer; your settings are kept.
 - **Uninstalling** (Settings → Apps → AudioDesk) closes AudioDesk and removes its Start with Windows entry.
   Your settings file (`%AppData%\AudioDesk`) is kept in case you reinstall.
 
@@ -329,7 +334,8 @@ visible.
 - **About:** the installed version.
 - **Updates:** **Check for updates** looks for a newer [release on GitHub](https://github.com/Shyam-Sangeeth/AudioDesk/releases).
   If there is one, **Download and install** downloads its installer, verifies it (size and the SHA-256 checksum
-  GitHub publishes) and runs it; AudioDesk closes, is upgraded with your settings kept, and starts again.
+  GitHub publishes) and runs it; Windows asks for administrator rights, then AudioDesk closes, is upgraded with your
+  settings kept, and starts again.
   **What's new** opens the release notes. With **Check for updates automatically** on (the default), AudioDesk
   checks once, shortly after it starts, and shows a notification you can click to update.
 
@@ -411,6 +417,7 @@ The full message shapes are in the doc comment of `LocalApi.cs`.
 | The start of sounds is cut off on a receiver/soundbar | Turn on [Keep device awake](#keep-device-awake) for that device. |
 | A bitstream/passthrough player can't open the device | Turn off Keep device awake for that device while you use the player. |
 | Tray icon missing | It's in the hidden-icons area (**^**). Drag it onto the taskbar. |
+| The installer says an earlier AudioDesk is installed for your account | Versions 1.0.0 and 1.0.1 installed per user. Uninstall that copy (Settings → Apps → AudioDesk), then run the installer again. |
 | The knob says AudioDesk isn't running, but it is | Turn on **Knob support** in the Settings tab. |
 
 ## Limitations

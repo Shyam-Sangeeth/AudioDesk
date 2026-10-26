@@ -63,6 +63,11 @@ AudioDesk runs every day on this PC with the user's real setup:
 2. Build the installer.
 3. Create a GitHub release `v<version>` with `AudioDesk-<version>-x64.msi` attached.
 
+The installer is per-machine since 1.0.2: Program Files by default, a folder page to choose another, the folder kept
+for upgrades (`HKLM\Software\AudioDesk\Installer\InstallFolder`, which Knob Hub's AudioDesk app also reads), and
+AudioDesk started through Explorer so it doesn't run elevated. 1.0.0 and 1.0.1 were per-user; the installer refuses
+to install over one (launch condition), so they must be uninstalled first.
+
 The in-app updater reads the latest release and checks the asset's SHA-256 digest. Releases restarted at 1.0.0 on
 2026-10-26 (earlier 1.0.x were deleted), and the installer won't downgrade, so never publish a lower version than the
 latest. Commit and publish only when the user asks.

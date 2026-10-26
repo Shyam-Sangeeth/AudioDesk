@@ -8,9 +8,6 @@
     <OutputName>AudioDesk-$(Version)-x64</OutputName>
     <InstallerPlatform>x64</InstallerPlatform>
     <DefineConstants>Version=$(Version);PayloadDir=$(PayloadDir);AssetsDir=$(MSBuildThisFileDirectory)..\Assets</DefineConstants>
-    <!-- Per-user install into %LocalAppData%: these ICEs expect per-machine conventions (HKCU key paths,
-         RemoveFolder for every per-user directory) that don't apply to the harvested app files. -->
-    <SuppressIces>ICE38;ICE64;ICE91</SuppressIces>
   </PropertyGroup>
 
   <ItemGroup>
