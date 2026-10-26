@@ -22,19 +22,18 @@
 - [Using AudioDesk](#using-audiodesk)
   - [Channels](#channels)
   - [Moving apps between channels](#moving-apps-between-channels)
-  - [ChatMix](#chatmix)
-  - [Profiles: Headset and Home Theater](#profiles-headset-and-home-theater)
+  - [Profiles: Sonar, Headset and Home Theater](#profiles-sonar-headset-and-home-theater)
   - [Channel settings](#channel-settings)
-  - [Noise removal (NVIDIA Broadcast)](#noise-removal-nvidia-broadcast)
+  - [Through Sonar (SteelSeries Sonar)](#through-sonar-steelseries-sonar)
   - [Keep device awake](#keep-device-awake)
-  - [Global shortcuts](#global-shortcuts)
   - [Devices tab](#devices-tab)
   - [Tray icon](#tray-icon)
   - [Settings tab](#settings-tab)
-- [Setting up Discord](#setting-up-discord)
+- [Voice chat and the microphone](#voice-chat-and-the-microphone)
 - [How it works](#how-it-works)
 - [Settings file](#settings-file)
 - [Command-line options](#command-line-options)
+- [Local API](#local-api)
 - [Troubleshooting](#troubleshooting)
 - [Limitations](#limitations)
 - [Building from source](#building-from-source)
@@ -44,7 +43,7 @@
 
 ## Why AudioDesk
 
-Mixers like SteelSeries Sonar give you separate Game, Chat and Media channels by installing **virtual audio
+Mixers like SteelSeries Sonar give you separate channels by installing **virtual audio
 devices**. Apps play into the virtual device, the mixer processes the sound, and then copies it to your real
 headset or speakers. That design has a cost:
 
@@ -58,21 +57,20 @@ headset or speakers. That design has a cost:
 
 AudioDesk does the routing with Windows' own per-app routing, the same mechanism behind
 *Settings → System → Sound → Volume mixer → App output device*. It gives that mechanism a channel-based
-interface, profiles, ChatMix and shortcuts.
+interface and profiles.
 
 ## Features
 
-- **Five channels:** Game, Chat, Media, Aux and Mic, each with its own device, volume and mute.
+- **Three channels: Game, Media and Aux**, each with its own device, volume and mute.
 - **Drag-and-drop routing:** drag an app from one channel to another, or right-click it and choose *Move to…*.
 - **Full quality:** each channel shows the real format of its device, e.g. *5.1 · 48 kHz · Dolby Digital* or
   *Stereo · 96 kHz · 24-bit*.
-- **ChatMix:** one slider to balance Game against Chat, like on a gaming headset.
-- **Profiles:** switch Game, Media and Aux between your **Headset** and **Home Theater** in one click.
-- **Noise removal:** one switch per channel to send Chat and Mic through NVIDIA Broadcast (when it's installed).
+- **Profiles:** in one click, send Game, Media and Aux all through **Sonar**, or straight to your **Headset** or
+  **Home Theater**.
+- **Through Sonar:** one switch per channel to send it through SteelSeries Sonar for its EQ and effects, while
+  the other channels stay direct at full quality.
 - **Keep device awake:** plays inaudible noise to a receiver or soundbar so it never sleeps and doesn't cut off
   the start of sounds after a pause.
-- **Global shortcuts:** switch device, change volume, mute, and switch profile from inside games, with an
-  on-screen confirmation.
 - **Tray icon:** pick devices and profiles from the tray; AudioDesk keeps working with the window closed.
 - **Self-healing routing:** new apps are sorted into their channel automatically, and if anything moves an
   app (Windows, another mixer, the app itself), AudioDesk puts it back.
@@ -83,7 +81,6 @@ interface, profiles, ChatMix and shortcuts.
 
 - **Windows 11**, or Windows 10 version 21H2 or later (per-app routing needs 21H2+).
 - Nothing else when you use the installer (it includes .NET). To build from source: the **.NET 10 SDK**.
-- Optional: **NVIDIA Broadcast** (RTX GPUs) for noise removal on Chat and Mic.
 
 AudioDesk doesn't need administrator rights and doesn't install drivers.
 
@@ -109,8 +106,9 @@ minimised to the tray at sign-in.
 
 Only one copy runs at a time. Launching it again brings the existing window to the front.
 
-**Turn SteelSeries Sonar off** (in SteelSeries GG) while you use AudioDesk. Both programs route apps, so they
-undo each other's changes. AudioDesk shows a warning banner when Sonar is running.
+SteelSeries Sonar can keep running alongside AudioDesk. AudioDesk does all the app routing; Sonar only
+processes the channels you send [through Sonar](#through-sonar-steelseries-sonar). Assign apps to channels in
+AudioDesk, not in Sonar: AudioDesk moves apps back to their channel's device.
 
 ## Using AudioDesk
 
@@ -123,20 +121,23 @@ Each card is a channel:
 | Channel | What it's for | Device |
 |---|---|---|
 | **Game** | Games, and every app you haven't moved | Your Windows **default output**. Changing it here changes the Windows default. |
-| **Chat** | Discord, Teams, Zoom… | Any output. Also becomes the Windows **communications** device. |
 | **Media** | Music, videos, browsers | Any output. |
 | **Aux** | Anything you want to keep separate | Any output. |
-| **Mic** | Your microphone | Your Windows **default recording device**. Lists the apps currently using the mic. |
 
 In each card:
 
-- **Device picker:** the line under it shows what the device really runs at.
+- **Sonar** button (when SteelSeries Sonar is installed): sends the channel
+  [through Sonar](#through-sonar-steelseries-sonar) or straight to its device.
+- **Device picker:** real devices only (Sonar's virtual devices are chosen with the **Sonar** button). The line
+  under it shows what the device really runs at.
 - **Live level meter:** like the Windows 11 volume slider, a green glow inside the slider track moves with the
-  channel's audio (your microphone's level on Mic). It fills the part of the track left of the knob, follows
-  ChatMix, and stays empty while muted. It only runs while the window is visible.
-- **Volume slider and mute button.** For output channels this sets each app's own volume in the Windows mixer,
-  which is applied in 32-bit float inside the audio engine, so it doesn't reduce quality. For Mic it sets the
-  microphone level.
+  channel's audio. It fills the part of the track left of the knob and stays empty while muted. It only runs
+  while the window is visible.
+- **Volume slider and mute button:** on a channel that goes straight to a device, they set each app's own volume
+  in the Windows mixer, which is applied in 32-bit float inside the audio engine, so it doesn't reduce quality.
+  On a channel that goes through Sonar, they are Sonar's own volume and mute for that channel (the slider you see
+  in SteelSeries GG): changing one changes the other. The apps in that channel stay at full volume in the Windows
+  mixer, so only Sonar's slider sets the level; when the channel comes off Sonar, its own volume comes back.
 - **Apps:** the apps in this channel. A green dot means the app is playing right now.
 - **Speaker tag:** on a surround device, each app shows which speakers it's feeding: **Stereo** (front left and
   right only), **5.1** or **7.1** (sound reached the centre, subwoofer or surround speakers), or **Mono** (centre
@@ -145,11 +146,9 @@ In each card:
   audio enhancements that remix every app (such as a Dolby or Realtek upmixer), because there stereo already
   reaches every speaker before AudioDesk can see it.
 
-**When a device disappears** (unplugged, or NVIDIA Broadcast closed), Chat, Media and Aux keep working: the
-channel temporarily uses the device it used before noise removal, otherwise your headset, otherwise Game's
-device. The card says *Saved device is unavailable, using this one for now*, and the channel goes back to the
-saved device by itself when it returns. The **Mic** channel's volume is re-applied whenever the microphone
-changes, so a mic that comes back at 0% (as Broadcast's does after a restart) is fixed automatically.
+**When a device disappears** (unplugged, or Sonar closed), Media and Aux keep working: the channel temporarily
+uses the device it used before Sonar, otherwise your headset, otherwise Game's device. The card says *Saved device is unavailable, using this one for now*, and the channel
+goes back to the saved device by itself when it returns.
 
 ### Moving apps between channels
 
@@ -157,53 +156,32 @@ Drag an app onto another channel, or right-click it:
 
 ![Move to menu](docs/screenshots/move-app-menu.png)
 
-AudioDesk remembers the choice by program name (e.g. `chrome`, `Discord`), so the app goes back to the same
-channel every time it starts. Apps appear in AudioDesk once they've opened an audio stream.
+AudioDesk remembers the choice by program name (e.g. `chrome`, `Spotify`), so the app goes back to the same
+channel every time it starts. Apps appear in AudioDesk once they've played sound (or once you've moved them to a
+channel). Background tools that only hold a silent audio session, like RGB software, stay hidden but are still
+routed.
 
 If an app keeps playing on the old device after you move it, restart that app. Some games only pick their
 output device at launch.
 
-### ChatMix
-
-The **ChatMix** card sits under the Game and Chat channels.
-
-- **Centre (Balanced):** Game and Chat both play at their full channel volume.
-- **Towards Game:** Chat gets quieter. The label shows its level, e.g. *Chat 40%*.
-- **Towards Chat:** Game gets quieter, e.g. *Game 40%*.
-- **Balance** button, or double-click the slider: back to the centre.
-
-ChatMix combines with each channel's own volume slider.
-
-ChatMix balances two things you hear together, so it's only **available when Game and Chat play on the same
-device** (any headset or speakers), **or when Chat goes through NVIDIA Broadcast's speakers**, whatever device
-Game uses. Otherwise (for example with Game on the home theater and Chat directly on the headset) the card shows
-**Off**, the slider is disabled, and ChatMix has no effect; your slider position is kept for when it's available
-again.
-
-### Profiles: Headset and Home Theater
+### Profiles: Sonar, Headset and Home Theater
 
 The **Profile** buttons above the channels move Game, Media and Aux together:
 
-| Profile | Game, Media, Aux | Chat | Mic |
-|---|---|---|---|
-| **Headset** | → headset | not changed | not changed |
-| **Home Theater** | → home theater | kept on the headset* | not changed |
+| Profile | Sonar on (every channel through Sonar) | Otherwise |
+|---|---|---|
+| **Sonar** (when Sonar is installed) | Takes every channel off Sonar again | Sends every channel through Sonar |
+| **Headset** | Sonar plays every channel on the headset | Every channel comes off Sonar and plays straight on the headset |
+| **Home Theater** | Sonar plays every channel on the home theater | Every channel comes off Sonar and plays straight on the home theater |
 
-\* If Chat was on the home theater, it's moved to the headset. Any other Chat device, such as NVIDIA Broadcast,
-is left alone.
+**Sonar** is highlighted while every channel goes through Sonar. **Headset** or **Home Theater** is highlighted
+when every channel ends up on that device, directly or through Sonar, so with Sonar on two buttons can be
+highlighted: Sonar, and where Sonar plays. The profile's device also becomes the one each channel goes back to
+after Sonar. If your channels match no profile, no button is highlighted.
 
-The active profile is highlighted. If your channels match neither profile, neither button is highlighted.
+While a switch is in progress, each affected channel shows a thin loader bar right under its device picker.
 
-While a switch is in progress, each affected channel shows a thin loader bar right under its device picker
-(here, Game switching):
-
-![Switching](docs/screenshots/switching.png)
-
-Result:
-
-![Home Theater profile](docs/screenshots/home-theater.png)
-
-The **⚙** next to the profiles chooses which device each profile uses, and holds the profile shortcuts:
+The **⚙** next to the profiles chooses which device each profile uses:
 
 ![Profile settings](docs/screenshots/profile-settings.png)
 
@@ -217,29 +195,61 @@ Each channel has a **⚙** button that opens its settings:
 ![Channel settings](docs/screenshots/channel-settings.png)
 
 - **Device:** the full device name (the drop-down cuts long names off) and its real format.
-- **Noise removal:** Chat and Mic only, and only when NVIDIA Broadcast is installed. See below.
-- **Shortcuts:** see [Global shortcuts](#global-shortcuts).
-- **Windows sound settings:** opens the classic Sound control panel (Recording tab for Mic).
+- **Windows sound settings:** opens the classic Sound control panel.
 
-### Noise removal (NVIDIA Broadcast)
+### Through Sonar (SteelSeries Sonar)
 
-With [NVIDIA Broadcast](https://www.nvidia.com/en-us/geforce/broadcasting/broadcast-app/) installed, Chat and
-Mic get a **Noise removal** option:
+Sonar processes audio in its own virtual devices, at their format (set in Sonar, not your DAC's), before passing
+it to your real device. With [SteelSeries Sonar](https://steelseries.com/gg/sonar) installed, every channel card
+gets a **Sonar** button next to its ⚙, so you choose which channels get Sonar's EQ and effects and which play
+directly on your DAC or headset:
 
-- **On:** the channel uses Broadcast's virtual device, *Speakers (NVIDIA Broadcast)* for Chat or
-  *Microphone (NVIDIA Broadcast)* for Mic. Broadcast cleans the audio and passes it to your real device.
-- **Off:** the channel goes back to the device it used before.
+| Channel | Through Sonar uses |
+|---|---|
+| Game | *SteelSeries Sonar - Gaming* (as the Windows default output) |
+| Media | *SteelSeries Sonar - Media* |
+| Aux | *SteelSeries Sonar - Aux* |
 
-Only voice goes through Broadcast. Game, Media and Aux stay direct and keep full quality.
+- **On (highlighted):** the channel uses Sonar's device. Sonar applies its EQ and effects and plays the result on
+  the output you picked in Sonar.
+- **Off:** the channel goes back to the device it used before, at that device's full quality.
 
-Set Broadcast up once, in the Broadcast app:
+While a channel goes through Sonar, its device picker shows the real device **Sonar** plays that channel on, and
+picking another device changes it in Sonar too (the same as choosing the output in SteelSeries GG). The tray menu
+does the same. Changes made in SteelSeries GG show up in AudioDesk within a couple of seconds.
 
-1. **Microphone** tab: source = your real microphone, *Noise Removal* on.
-2. **Speakers** tab: output = your real headset, *Noise Removal* on.
+A **preset** picker also appears under the format line, listing the presets you've marked as **favourites** in
+Sonar (in Sonar's order), plus the selected one if it isn't a favourite. Picking one selects it in Sonar. New
+favourites show up within about 30 seconds.
 
-When it's installed, Broadcast may make itself the Windows default device. If so, set **Game** back to your
-headset in AudioDesk. If people can't hear you, check the level of *Microphone (NVIDIA Broadcast)*: set the Mic
-channel volume to 100%.
+**Game** has hundreds of Sonar presets, so its preset opens a searchable list instead: type to filter by name,
+and turn **Favourites only** (on by default) off to see every preset. Favourites are marked with a star and the
+selected preset is in bold. **Enter** picks the first match, **Esc** closes the list.
+
+**Media** and **Aux** can link a preset to each device: in the channel's **⚙** settings, under *Sonar preset for
+each device*, the list starts with a **Default** row (*Don't change* or a favourite preset), and each device row
+offers *Use default* or a favourite preset. When Sonar's device for that channel changes (from the card's picker,
+a profile, the tray, or SteelSeries GG), the device's own preset is selected, or the Default preset if the device
+is set to *Use default* (if Default is *Don't change*, the preset is left alone). A preset you pick by hand
+stays until the device changes again. Links are saved in `mixer.json`.
+
+SteelSeries GG's own Sonar page doesn't refresh when AudioDesk changes a preset or device: Sonar applies the change
+right away, but GG shows it only after you switch pages in GG or reopen it.
+
+The format line shows the format Sonar processes the channel in,
+e.g. *Sonar · 7.1 · 96 kHz · 24-bit*. This uses the local connection SteelSeries GG's own Sonar page uses, so it needs Sonar in **Classic**
+mode; it isn't an official API and could stop working after a GG update.
+
+To switch all three at once, use the [profiles](#profiles-sonar-headset-and-home-theater): **Sonar** sends every
+channel through Sonar (click it again to turn Sonar off for all of them), and **Headset** or **Home Theater**
+then changes where Sonar plays.
+
+On a channel that goes through Sonar, the volume slider and mute are Sonar's own for that channel, so they stay
+in step with SteelSeries GG. When Sonar isn't running, Media and Aux play on the device they'd go back to, and
+return to Sonar when it starts again.
+
+Sonar makes its own devices the Windows defaults when it starts, so **Game** may show **Sonar** on by itself.
+Click it off to send games straight to your real device.
 
 ### Keep device awake
 
@@ -255,7 +265,7 @@ the noise pauses; it resumes within about half a second of the device going quie
 A small green wave (∿) after the device's format shows when the noise is actually playing, on the channels that
 use the device and on the Devices tab.
 
-The noise only plays while a channel (Game, Chat, Media or Aux) is using the device. With the Headset profile
+The noise only plays while a channel (Game, Media or Aux) is using the device. With the Headset profile
 active, a kept-awake home theater gets no noise; switch to Home Theater and it starts automatically. While it's
 waiting, the device's card says *Keep awake is paused: no channel uses this device*.
 
@@ -273,52 +283,22 @@ waiting, the device's card says *Keep awake is paused: no channel uses this devi
   that need the device **exclusively** (bitstream passthrough in VLC, MPC, Kodi) can't open it. Turn it off for
   those.
 
-### Global shortcuts
-
-Shortcuts work everywhere, including in games.
-
-**Per channel** (in the channel's ⚙):
-
-| Shortcut | Does |
-|---|---|
-| Switch device | Moves the channel to its next device (*Switch microphone* on Mic) |
-| Volume up / Volume down | ±5% per press; hold to keep changing. Also unmutes. |
-| Mute / unmute | Toggles mute |
-
-**Profiles** (in the profile ⚙):
-
-| Shortcut | Does |
-|---|---|
-| Switch profile | Toggles between Headset and Home Theater |
-| Headset / Home Theater | Switches to that profile |
-
-To set a shortcut, click its box (it says *Press keys…*) and press the combination:
-
-- Hold **Ctrl**, **Alt** or **Shift** with the key. **F-keys** can be used alone.
-- **Esc** cancels, and **Backspace** or the **✕** button removes the shortcut.
-- If the keys are already used by another AudioDesk shortcut, or by another program, the row shows a red message.
-
-Each shortcut shows a short on-screen confirmation at the bottom of the screen. It never takes focus, so it
-won't interrupt a game:
-
-![Shortcut confirmation](docs/screenshots/shortcut-osd.png)
-
 ### Devices tab
 
 ![Devices](docs/screenshots/devices.png)
 
-All active playback and recording devices with their real format. **Default** marks the Windows default
-device and **Calls** the communications device; **Virtual** marks virtual devices. Use **Make default** and
-**Use for calls** to change them, and **Keep awake** to [keep a playback device awake](#keep-device-awake).
+All active real playback devices with their real format (virtual devices such as Sonar's aren't listed).
+**Default** marks the Windows default device. Use **Make default** to change it, and **Keep awake** to
+[keep a playback device awake](#keep-device-awake).
 
 ### Tray icon
 
-Closing the window keeps AudioDesk running in the tray, so channels and shortcuts keep working.
+Closing the window keeps AudioDesk running in the tray, so channels keep working.
 
 - **Left-click:** open the window.
 - **Right-click:**
-  - **Headset / Home Theater:** switch profile (the active one is ticked).
-  - **Game / Chat / Media / Aux / Mic:** pick that channel's device.
+  - **Sonar / Headset / Home Theater:** switch profile (the active one is ticked).
+  - **Game / Media / Aux:** pick that channel's device.
   - **Open AudioDesk**, **Exit**.
 
 Windows may put the icon in the hidden-icons area (**^** next to the clock). Drag it onto the taskbar to keep it
@@ -326,7 +306,7 @@ visible.
 
 ### Settings tab
 
-- **Start with Windows:** starts AudioDesk in the tray when you sign in, so channels, shortcuts and keep awake
+- **Start with Windows:** starts AudioDesk in the tray when you sign in, so channels and keep awake
   work right away. (It adds AudioDesk to your Windows startup apps; you can also turn it off in
   *Settings → Apps → Startup*.)
 - **About:** the installed version.
@@ -336,42 +316,25 @@ visible.
   **What's new** opens the release notes. With **Check for updates automatically** on (the default), AudioDesk
   checks once, shortly after it starts, and shows a notification you can click to update.
 
-## Setting up Discord
+## Voice chat and the microphone
 
-Discord uses three devices: chat output (voices), chat input (your mic), and normal audio (videos, embeds,
-sounds).
+AudioDesk leaves voice apps and the microphone to SteelSeries Sonar; it does not list, route or change their
+volume.
 
-In Discord → **User Settings → Voice & Video**:
-
-| Discord setting | Set to |
-|---|---|
-| Input Device | **Default** (your Mic channel) |
-| Output Device | Your **Chat** device, e.g. **Speakers (NVIDIA Broadcast)** |
-| Noise Suppression | **None** if you use Broadcast (running both can sound robotic) |
-| Echo Cancellation | Off when using a headset |
-| Attenuation | **0%** (let ChatMix handle the balance) |
-
-Then, in AudioDesk, put **Discord** in the channel you want its normal audio in (Game or Media). Its voices
-appear in the **Chat** column marked **Voice**, and follow Chat's volume and ChatMix.
-
-This "Voice" handling only applies to voice and call apps (Discord, Teams, Zoom, Slack, Skype, TeamSpeak, Mumble,
-WhatsApp, Telegram, Signal, Guilded, Element) that are actively playing on the Chat device. Other apps never show
-up in Chat this way, even if they're briefly still playing on Chat's device after a device change.
-
-Also: run `mmsys.cpl` → **Communications** tab → **Do nothing**, so Windows doesn't lower other sounds during
-calls.
+In Discord, set the output device to **SteelSeries Sonar - Chat** and the input device to **SteelSeries Sonar -
+Microphone** (**User Settings → Voice & Video**).
 
 ## How it works
 
 - **Per-app routing:** apps are sent to their channel's device with Windows' per-app default endpoint
   (`IAudioPolicyConfigFactory`, the API behind the Volume mixer's per-app device setting). Windows remembers it
   per program. Apps in Game have no override, so they follow the Windows default.
-- **Default devices:** Game and Mic *are* the Windows default playback and recording devices, set with
-  `IPolicyConfig` (the same call the Sound control panel uses). Chat also sets the communications device.
+- **Default device:** Game *is* the Windows default playback device, set with `IPolicyConfig` (the same call the
+  Sound control panel uses).
 - **Enforcement:** every 1.5 s AudioDesk scans audio sessions and re-applies routing where needed. This is how
   new apps get sorted, and how apps moved by something else are put back.
-- **Volume:** channel volume, mute and ChatMix are applied to each app's session volume. Audio that an app sends
-  directly to the Chat device (like Discord's voice) counts as Chat.
+- **Volume:** channel volume and mute are applied to each app's session volume, or to Sonar's own channel volume
+  (through Sonar's local web server) while the channel goes through Sonar.
 - **No freezing:** switching a default device can take a couple of seconds while the device restarts (an
   S/PDIF output with Dolby encoding also restarts its encoder). Switches, session scans and device reads run on
   worker threads. The window reads devices from a cache that refreshes when Windows reports a change.
@@ -387,7 +350,8 @@ Settings are saved to:
 ```
 
 It contains the channel devices, volumes and mute states, which channel each app belongs to (by process name),
-ChatMix, profile devices, all shortcuts and the kept-awake devices with their noise levels. It's plain JSON. To start over, quit AudioDesk and delete the file.
+profile devices and the kept-awake devices with their noise levels. It's plain JSON. To start
+over, quit AudioDesk and delete the file.
 
 Windows also remembers per-app device choices itself. To clear those: *Settings → System → Sound → Volume
 mixer → Reset*.
@@ -401,18 +365,30 @@ mixer → Reset*.
 | `--exit` | Closes a running AudioDesk and waits until it has exited (used by the installer). |
 | `--add-startup` / `--remove-startup` | Turns Start with Windows on/off for this copy of AudioDesk, then exits (used by the installer). |
 
+## Local API
+
+AudioDesk has a local API so other apps on the PC can show and change its channels; Knob Hub's AudioDesk app uses
+it to control AudioDesk from a hardware knob. It is a named pipe, `AudioDesk.Api`, that only the signed-in Windows
+user can open, with one JSON object per line each way.
+
+- **State:** AudioDesk sends a `state` message when a client connects and whenever something changes: Sonar
+  available/on, the active profile, and for each channel (game, media, aux) its volume (0-1), mute, whether it goes
+  through Sonar, whether it is switching, its device and the devices it can pick.
+- **Commands:** `volume` {channel, value}, `mute` {channel, muted}, `device` {channel, id}, `sonar` {on} (every
+  channel), `channel_sonar` {channel, on} (one channel), `profile` {profile: "headset" or "home_theater"}. Like the
+  window's slider, `volume` and `mute` set Sonar's channel volume while that channel goes through Sonar. A failed
+  command is answered with `error` {text}.
+
+The full message shapes are in the doc comment of `LocalApi.cs`.
+
 ## Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| Apps jump back to other devices | SteelSeries Sonar (or another mixer) is running. Turn it off in SteelSeries GG. |
+| Apps jump back to other devices | Another mixer is routing apps too. With SteelSeries Sonar, assign apps in AudioDesk, not in Sonar. |
+| Game goes through Sonar by itself | Sonar made its devices the Windows defaults when it started. Click **Sonar** off on the Game card. |
 | An app doesn't move to its channel's device | Restart the app. If the app has its own device setting, set it to **Default**: apps that pick a specific device ignore per-app routing. |
-| An app isn't listed | It appears once it opens an audio stream (starts playing or joins a call). |
-| Everything suddenly plays through NVIDIA Broadcast | Broadcast made itself the default device. Set **Game** back to your headset. |
-| People can't hear me with noise removal on | Check the Mic channel volume (AudioDesk re-applies it when Broadcast's mic comes back at 0%). Check Broadcast's Microphone source. |
-| Chat says "Saved device is unavailable" | Its device is gone (e.g. NVIDIA Broadcast was closed). Chat uses a stand-in and switches back when the device returns. |
-| No sound in Chat with noise removal on | In the Broadcast app, set the Speakers output to your headset. |
-| A shortcut shows "already used by another app" | Another program owns that combination. Choose a different one. |
+| An app isn't listed | It appears once it plays sound. Voice apps (Discord, Teams…) are never listed: they're left to Sonar. |
 | The start of sounds is cut off on a receiver/soundbar | Turn on [Keep device awake](#keep-device-awake) for that device. |
 | A bitstream/passthrough player can't open the device | Turn off Keep device awake for that device while you use the player. |
 | Tray icon missing | It's in the hidden-icons area (**^**). Drag it onto the taskbar. |
@@ -470,25 +446,24 @@ update check reads the latest release, so that's all it takes for installed copi
 
 ```
 AudioDesk/
-├─ App.xaml(.cs)            Startup, single instance, tray, shortcuts, on-screen confirmations, --selftest
-├─ MainWindow.xaml(.cs)     Mixer and Devices tabs, popups, drag-and-drop, shortcut recorder
-├─ ViewModels.cs            Channel, ChatMix, profile and shortcut view models
+├─ App.xaml(.cs)            Startup, single instance, tray, --selftest
+├─ MainWindow.xaml(.cs)     Mixer and Devices tabs, popups, drag-and-drop
+├─ ViewModels.cs            Channel and profile view models
 ├─ TrayIcon.cs              Tray icon and its menu
 ├─ StartupSetting.cs        Start with Windows (per-user Run entry)
 ├─ Updates/UpdateService.cs GitHub release check, verified installer download, runs the installer
-├─ HotkeyService.cs         System-wide shortcuts (RegisterHotKey)
-├─ OsdWindow.cs             On-screen confirmation popup
+├─ LocalApi.cs              Local API for other apps (named pipe, JSON lines)
 ├─ IconHelper.cs            App icon and app-icon lookup
 ├─ Converters.cs            XAML helpers (popup placement, inverse bool)
 ├─ Audio/
 │  ├─ AudioService.cs       Devices (cached), formats, audio sessions, session/device volume
 │  ├─ KeepAwakeService.cs   Quiet noise streams that keep receivers/soundbars awake
 │  ├─ MeterService.cs       Live per-channel level meters and per-app speaker tags (background thread)
+│  ├─ SonarClient.cs        Reads and changes the device each Sonar channel plays on (Sonar's local web server)
 │  ├─ AudioEffects.cs       Detects enhancements that remix each stream (so speaker tags would mislead)
 │  └─ Interop.cs            IPolicyConfig (default devices), IAudioPolicyConfigFactory (per-app routing)
 ├─ Mixer/
-│  ├─ ChannelManager.cs     Channels, routing enforcement, profiles, ChatMix, noise removal, settings file
-│  └─ Hotkey.cs             Shortcut model and storage format
+│  └─ ChannelManager.cs     Channels, routing enforcement, profiles, settings file
 ├─ Assets/                  Logo (SVG, PNG), AudioDesk.ico, make-icons.ps1
 ├─ installer/               WiX installer: Package.wxs, build-installer.ps1, artwork (make-installer-art.ps1)
 └─ docs/screenshots/        Images used in this README

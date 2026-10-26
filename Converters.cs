@@ -15,6 +15,14 @@ public static class PopupPlacement
     ];
 }
 
+/// <summary>Empty text → Visible, otherwise Collapsed. Shows a text box's placeholder only while it's empty.</summary>
+public sealed class EmptyToVisibleConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        string.IsNullOrEmpty(value as string) ? Visibility.Visible : Visibility.Collapsed;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
 /// <summary>true → false. Used to stop a toggle button reopening its popup on the click that closed it.</summary>
 public sealed class InverseBooleanConverter : IValueConverter
 {

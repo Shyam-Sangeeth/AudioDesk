@@ -4,12 +4,13 @@
         xmlns:local="clr-namespace:AudioDesk"
         Title="AudioDesk"
         Icon="Assets/AudioDesk.ico"
-        Width="1240" Height="760" MinWidth="1060" MinHeight="560"
+        Width="1000" Height="720" MinWidth="820" MinHeight="520"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <local:InverseBooleanConverter x:Key="Not" />
+        <local:EmptyToVisibleConverter x:Key="EmptyToVisible" />
         <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
         <!-- One and a half sine waves: the "keep-awake noise is playing" mark after a device's format. -->
@@ -26,40 +27,14 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <!-- A shortcut row: click the box, then press the keys. Esc cancels, Backspace clears. -->
-        <DataTemplate x:Key="ShortcutRow">
-            <Grid Margin="0,0,0,6">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="140" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center" Margin="0,0,8,0">
-                    <TextBlock Text="{Binding Label}" />
-                    <TextBlock Text="{Binding Error}" FontSize="11" TextWrapping="Wrap"
-                               Foreground="{DynamicResource SystemFillColorCriticalBrush}"
-                               Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}" />
-                </StackPanel>
-                <Button Grid.Column="1" HorizontalAlignment="Stretch" Content="{Binding ButtonText}" Tag="{Binding}"
-                        ToolTip="Click, then press the keys. Esc cancels, Backspace removes."
-                        Click="Shortcut_Click" PreviewKeyDown="Shortcut_KeyDown" LostKeyboardFocus="Shortcut_LostFocus" />
-                <Button Grid.Column="2" Width="30" Height="30" Padding="0" Margin="4,0,0,0" Tag="{Binding}"
-                        ToolTip="Remove shortcut" Click="ShortcutClear_Click"
-                        Visibility="{Binding HasHotkey, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="11" />
-                </Button>
-            </Grid>
-        </DataTemplate>
-
         <!-- An app inside a channel: drag it to another channel, or right-click to move it. -->
         <DataTemplate x:Key="AppChipTemplate">
             <Border Margin="0,0,0,6" Padding="8,6" CornerRadius="6" ToolTip="{Binding Tip}"
                     Background="{DynamicResource SubtleFillColorSecondaryBrush}"
                     PreviewMouseLeftButtonDown="Chip_MouseDown" PreviewMouseMove="Chip_MouseMove">
                 <Border.ContextMenu>
-                    <ContextMenu IsEnabled="{Binding CanMove}">
+                    <ContextMenu>
                         <MenuItem Header="Move to Game" Tag="Game" Click="MoveTo_Click" />
-                        <MenuItem Header="Move to Chat" Tag="Chat" Click="MoveTo_Click" />
                         <MenuItem Header="Move to Media" Tag="Media" Click="MoveTo_Click" />
                         <MenuItem Header="Move to Aux" Tag="Aux" Click="MoveTo_Click" />
                     </ContextMenu>
@@ -79,11 +54,6 @@
                                 Visibility="{Binding HasLayout, Converter={StaticResource BoolToVisibility}}">
                             <TextBlock Text="{Binding Layout}" FontSize="11" Style="{StaticResource SecondaryText}" />
                         </Border>
-                        <Border CornerRadius="4" Padding="5,0" Margin="0,0,6,0" BorderThickness="1"
-                                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="{Binding Badge}" FontSize="11" Style="{StaticResource SecondaryText}" />
-                        </Border>
                         <Ellipse Width="8" Height="8" VerticalAlignment="Center"
                                  Fill="{DynamicResource SystemFillColorSuccessBrush}"
                                  Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisibility}}" />
@@ -96,7 +66,7 @@
             <Border Margin="0,0,10,0" Padding="14" CornerRadius="8" BorderThickness="1"
                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
-                    AllowDrop="{Binding AcceptsApps}" Tag="{Binding}"
+                    AllowDrop="True" Tag="{Binding}"
                     DragOver="Channel_DragOver" Drop="Channel_Drop">
                 <DockPanel>
                     <DockPanel DockPanel.Dock="Top">
@@ -124,25 +94,55 @@
                                     <TextBlock Text="{Binding DeviceName}" TextWrapping="Wrap" />
                                     <TextBlock Text="{Binding Format}" FontSize="12" Margin="0,2,0,0" Style="{StaticResource SecondaryText}" />
 
-                                    <!-- Only on Chat and Mic, and only when NVIDIA Broadcast is installed. -->
-                                    <CheckBox Margin="0,16,0,0" IsChecked="{Binding NoiseRemoval, Mode=TwoWay}"
-                                              Visibility="{Binding NoiseRemovalAvailable, Converter={StaticResource BoolToVisibility}}">
-                                        <StackPanel>
-                                            <TextBlock Text="Noise removal" />
-                                            <TextBlock Text="Cleans this channel's audio with NVIDIA Broadcast" FontSize="11"
-                                                       TextWrapping="Wrap" Style="{StaticResource SecondaryText}" />
-                                        </StackPanel>
-                                    </CheckBox>
-
-                                    <!-- Global shortcuts: click a box, then press the keys. Esc cancels, Backspace clears. -->
-                                    <TextBlock Text="Shortcuts" FontSize="12" Margin="0,16,0,6" Style="{StaticResource SecondaryText}" />
-                                    <ItemsControl ItemsSource="{Binding Shortcuts}" ItemTemplate="{StaticResource ShortcutRow}" />
+                                    <!-- Media/Aux: a Sonar preset per device, selected when Sonar switches to that device. -->
+                                    <StackPanel Visibility="{Binding ShowPresetLinks, Converter={StaticResource BoolToVisibility}}">
+                                        <TextBlock Text="Sonar preset for each device" FontSize="12" Margin="0,16,0,2" Style="{StaticResource SecondaryText}" />
+                                        <TextBlock Text="When Sonar plays this channel on a device, it also switches to that device's preset, or to the default for devices set to Use default."
+                                                   FontSize="11" TextWrapping="Wrap" Margin="0,0,0,6" Style="{StaticResource SecondaryText}" />
+                                        <ItemsControl ItemsSource="{Binding PresetLinks}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,0,0,6">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="150" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding DeviceName}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding DeviceName}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsDefault}" Value="True">
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" ItemsSource="{Binding Choices}"
+                                                                  DisplayMemberPath="Name" SelectedValuePath="Id"
+                                                                  SelectedValue="{Binding PresetId, Mode=TwoWay}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
 
                                     <Button Content="Windows sound settings" Margin="0,10,0,0" HorizontalAlignment="Left"
                                             Tag="{Binding}" Click="SoundSettings_Click" />
                                 </StackPanel>
                             </Border>
                         </Popup>
+                        <!-- Through Sonar: only when SteelSeries Sonar is installed. Off = straight to the real device. -->
+                        <ToggleButton DockPanel.Dock="Right" Height="32" Padding="10,0" Margin="0,0,6,0"
+                                      IsChecked="{Binding ThroughSonar, Mode=TwoWay}"
+                                      Visibility="{Binding SonarAvailable, Converter={StaticResource BoolToVisibility}}"
+                                      ToolTip="Through Sonar: play this channel through SteelSeries Sonar for its EQ and effects, in Sonar's format. Off plays straight to the device.">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE9E9;" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <TextBlock Text="Sonar" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ToggleButton>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" FontSize="18" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
@@ -178,6 +178,84 @@
                               ToolTip="Keep awake is on: quiet noise is playing so this device doesn't fall asleep."
                               Visibility="{Binding IsKeepAwakePlaying, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
+                    <!-- Sonar preset (your Sonar favourites), while the channel goes through Sonar. -->
+                    <DockPanel DockPanel.Dock="Top" Margin="0,8,0,0"
+                               Visibility="{Binding HasPresets, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="&#xE9E9;" FontFamily="{StaticResource IconFont}" FontSize="14" VerticalAlignment="Center"
+                                   Margin="2,0,10,0" ToolTip="Sonar preset" />
+                        <Grid>
+                            <!-- Media/Aux: a drop-down of your Sonar favourites. -->
+                            <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Presets}" DisplayMemberPath="Name" SelectedValuePath="Id"
+                                      SelectedValue="{Binding PresetId, Mode=TwoWay}"
+                                      Visibility="{Binding ShowPresetCombo, Converter={StaticResource BoolToVisibility}}"
+                                      ToolTip="Sonar preset. Shows the presets you've marked as favourites in Sonar." />
+
+                            <!-- Game: hundreds of presets, so a searchable list (favourites only by default). -->
+                            <ToggleButton x:Name="PresetButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="11,5,10,6"
+                                          IsChecked="{Binding IsPresetPickerOpen, Mode=TwoWay}"
+                                          IsHitTestVisible="{Binding IsOpen, ElementName=PresetPopup, Converter={StaticResource Not}}"
+                                          Visibility="{Binding ShowPresetSearch, Converter={StaticResource BoolToVisibility}}"
+                                          ToolTip="Sonar preset. Click to search all presets.">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="10"
+                                               VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    <TextBlock Text="{Binding SelectedPresetName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </DockPanel>
+                            </ToggleButton>
+                            <Popup x:Name="PresetPopup" PlacementTarget="{Binding ElementName=PresetButton}" Placement="Bottom"
+                                   StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+                                   IsOpen="{Binding IsPresetPickerOpen, Mode=TwoWay}" Opened="PresetPopup_Opened">
+                                <Border Width="300" Margin="8" Padding="12" CornerRadius="8" BorderThickness="1"
+                                        Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                                        BorderBrush="{DynamicResource SurfaceStrokeColorFlyoutBrush}">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.35" />
+                                    </Border.Effect>
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBox x:Name="PresetSearchBox" Text="{Binding PresetSearch, UpdateSourceTrigger=PropertyChanged}"
+                                                     PreviewKeyDown="PresetSearch_KeyDown" />
+                                            <TextBlock Text="Search presets" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                                                       Style="{StaticResource SecondaryText}"
+                                                       Visibility="{Binding Text, ElementName=PresetSearchBox, Converter={StaticResource EmptyToVisible}}" />
+                                        </Grid>
+                                        <CheckBox Content="Favourites only" Margin="0,8,0,6" IsChecked="{Binding FavoritesOnly, Mode=TwoWay}" />
+                                        <ListBox ItemsSource="{Binding FilteredPresets}" MaxHeight="320" BorderThickness="0"
+                                                 Background="Transparent" PreviewMouseLeftButtonUp="PresetList_Click"
+                                                 VirtualizingPanel.IsVirtualizing="True" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                            <ListBox.ItemContainerStyle>
+                                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                </Style>
+                                            </ListBox.ItemContainerStyle>
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <DockPanel>
+                                                        <TextBlock DockPanel.Dock="Right" Text="&#xE735;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                                                   VerticalAlignment="Center" Margin="8,0,0,0" ToolTip="Favourite in Sonar"
+                                                                   Visibility="{Binding IsFavorite, Converter={StaticResource BoolToVisibility}}" />
+                                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </DockPanel>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                        <TextBlock Text="No presets found." Margin="4,8,0,4" Style="{StaticResource SecondaryText}"
+                                                   Visibility="{Binding NoPresetsFound, Converter={StaticResource BoolToVisibility}}" />
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </DockPanel>
                     <!-- Shown while the saved device is missing and a stand-in is used; it switches back by itself. -->
                     <TextBlock DockPanel.Dock="Top" Margin="2,2,0,0" FontSize="11" TextWrapping="Wrap"
                                Foreground="{DynamicResource SystemFillColorCautionBrush}"
@@ -249,10 +327,6 @@
                                     Visibility="{Binding IsCommunications, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="Calls" FontSize="11" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
                             </Border>
-                            <Border Style="{StaticResource Badge}" BorderThickness="1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                                    Visibility="{Binding IsVirtual, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Virtual" FontSize="11" Style="{StaticResource SecondaryText}" />
-                            </Border>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                             <TextBlock Text="{Binding Format}" Style="{StaticResource SecondaryText}" />
@@ -283,8 +357,6 @@
                                       SelectedValuePath="Db" SelectedValue="{Binding KeepAwakeDb, Mode=OneWay}"
                                       SelectionChanged="KeepAwakeLevel_Changed" />
                         </StackPanel>
-                        <Button Content="Use for calls" Margin="0,0,8,0" Tag="{Binding}" Click="MakeCommunications_Click"
-                                Visibility="{Binding CanMakeCommunications, Converter={StaticResource BoolToVisibility}}" />
                         <Button Content="Make default" Tag="{Binding}" Click="MakeDefault_Click"
                                 Style="{DynamicResource AccentButtonStyle}" IsEnabled="{Binding CanMakeDefault}" />
                     </StackPanel>
@@ -307,13 +379,6 @@
             <TextBlock Text="AudioDesk" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center" />
         </StackPanel>
 
-        <Border x:Name="SonarBanner" Grid.Row="1" Margin="0,12,0,0" Padding="14,10" CornerRadius="6" BorderThickness="1"
-                Background="{DynamicResource SystemFillColorCautionBackgroundBrush}"
-                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" Visibility="Collapsed">
-            <TextBlock TextWrapping="Wrap"
-                       Text="SteelSeries Sonar is running. It routes apps to its own virtual devices and will fight AudioDesk over them. Quit Sonar (or turn it off in SteelSeries GG) while you use AudioDesk." />
-        </Border>
-
         <TabControl Grid.Row="2" Margin="0,12,0,0">
             <TabItem Header="Mixer">
                 <DockPanel Margin="0,12,0,0">
@@ -321,6 +386,23 @@
                         <!-- Profiles: the active one is shown as an accent button. -->
                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                             <TextBlock Text="Profile" VerticalAlignment="Center" Margin="0,0,10,0" Style="{StaticResource SecondaryText}" />
+
+                            <!-- Sonar: every channel through Sonar. Only when Sonar is installed. -->
+                            <Button Tag="Sonar" Click="Profile_Click" Padding="12,6" Margin="0,0,6,0" ToolTip="{Binding Profiles.SonarTip}"
+                                    Style="{DynamicResource AccentButtonStyle}"
+                                    Visibility="{Binding Profiles.ShowSonarActive, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE9E9;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Sonar" />
+                                </StackPanel>
+                            </Button>
+                            <Button Tag="Sonar" Click="Profile_Click" Padding="12,6" Margin="0,0,6,0" ToolTip="{Binding Profiles.SonarTip}"
+                                    Visibility="{Binding Profiles.ShowSonarInactive, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="&#xE9E9;" FontFamily="{StaticResource IconFont}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Text="Sonar" />
+                                </StackPanel>
+                            </Button>
 
                             <Button Tag="Headset" Click="Profile_Click" Padding="12,6" ToolTip="{Binding Profiles.HeadsetTip}"
                                     Style="{DynamicResource AccentButtonStyle}"
@@ -375,16 +457,14 @@
                                         <TextBlock Text="Headset" FontSize="12" Margin="0,14,0,4" Style="{StaticResource SecondaryText}" />
                                         <ComboBox ItemsSource="{Binding Profiles.Choices}" DisplayMemberPath="Label" SelectedValuePath="Id"
                                                   SelectedValue="{Binding Profiles.HeadsetDeviceId, Mode=TwoWay}" HorizontalAlignment="Stretch" />
-                                        <TextBlock Text="Game, Media and Aux play here; Chat isn't changed." FontSize="11" Margin="0,4,0,0" Style="{StaticResource SecondaryText}" />
+                                        <TextBlock Text="Game, Media and Aux play here." FontSize="11" Margin="0,4,0,0" Style="{StaticResource SecondaryText}" />
 
                                         <TextBlock Text="Home Theater" FontSize="12" Margin="0,14,0,4" Style="{StaticResource SecondaryText}" />
                                         <ComboBox ItemsSource="{Binding Profiles.Choices}" DisplayMemberPath="Label" SelectedValuePath="Id"
                                                   SelectedValue="{Binding Profiles.HomeTheaterDeviceId, Mode=TwoWay}" HorizontalAlignment="Stretch" />
-                                        <TextBlock Text="Game, Media and Aux play here; Chat and Mic stay on the headset." FontSize="11" Margin="0,4,0,0"
+                                        <TextBlock Text="Game, Media and Aux play here." FontSize="11" Margin="0,4,0,0"
                                                    TextWrapping="Wrap" Style="{StaticResource SecondaryText}" />
 
-                                        <TextBlock Text="Shortcuts" FontSize="12" Margin="0,16,0,6" Style="{StaticResource SecondaryText}" />
-                                        <ItemsControl ItemsSource="{Binding Profiles.Shortcuts}" ItemTemplate="{StaticResource ShortcutRow}" />
                                     </StackPanel>
                                 </Border>
                             </Popup>
@@ -392,66 +472,15 @@
                     </DockPanel>
 
                     <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12" TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
-                               Text="Drag apps between channels, or right-click an app. Apps you haven't moved play on Game." />
+                               Text="Drag apps between channels, or right-click an app. Apps you haven't moved play on Game. Voice apps and the mic are left to Sonar." />
 
-                    <!-- Five equal columns, matching the channel cards, so ChatMix sits exactly under Game and Chat. -->
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <ItemsControl Grid.ColumnSpan="5" ItemsSource="{Binding Channels}" ItemTemplate="{StaticResource ChannelCard}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <UniformGrid Rows="1" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-
-                        <!-- ChatMix: balance Game against Chat, like Sonar. Double-click the slider to center it. -->
-                        <Border Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,10,0" Padding="14,10" CornerRadius="8" BorderThickness="1"
-                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
-                            <StackPanel>
-                                <DockPanel>
-                                    <Button DockPanel.Dock="Right" Content="Balance" Margin="12,0,0,0" Click="ChatMixBalance_Click"
-                                            IsEnabled="{Binding ChatMix.CanBalance}" ToolTip="Play Game and Chat at full volume" />
-                                    <TextBlock DockPanel.Dock="Right" Text="{Binding ChatMix.Text}" Style="{StaticResource SecondaryText}" VerticalAlignment="Center" />
-                                    <TextBlock Text="ChatMix" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                </DockPanel>
-                                <Grid Margin="0,8,0,0" IsEnabled="{Binding ChatMix.IsEnabled}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="&#xE7FC;" FontFamily="{StaticResource IconFont}" FontSize="16" VerticalAlignment="Center" />
-                                        <TextBlock Text="Game" Margin="6,0,0,0" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                    <Slider Grid.Column="1" Margin="14,0" VerticalAlignment="Center" Minimum="-100" Maximum="100"
-                                            TickFrequency="50" TickPlacement="BottomRight" IsMoveToPointEnabled="True"
-                                            Value="{Binding ChatMix.Value, Mode=TwoWay}" MouseDoubleClick="ChatMix_DoubleClick"
-                                            ToolTip="Slide toward Game to turn Chat down, toward Chat to turn Game down. Double-click to center." />
-                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="Chat" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource IconFont}" FontSize="16" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Grid>
-                                <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
-                                           Text="Available when Game and Chat play on the same device, or when Chat goes through NVIDIA Broadcast."
-                                           Visibility="{Binding ChatMix.IsDisabled, Converter={StaticResource BoolToVisibility}}" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
+                    <ItemsControl ItemsSource="{Binding Channels}" ItemTemplate="{StaticResource ChannelCard}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Rows="1" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                 </DockPanel>
             </TabItem>
 
@@ -460,8 +489,6 @@
                     <StackPanel>
                         <TextBlock Text="Playback" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
                         <ItemsControl ItemsSource="{Binding Outputs}" ItemTemplate="{StaticResource DeviceCard}" />
-                        <TextBlock Text="Recording" FontSize="16" FontWeight="SemiBold" Margin="0,16,0,8" />
-                        <ItemsControl ItemsSource="{Binding Inputs}" ItemTemplate="{StaticResource DeviceCard}" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -483,7 +510,7 @@
                                            VerticalAlignment="Center" Margin="0,0,16,0" />
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="Start with Windows" FontSize="15" FontWeight="SemiBold" />
-                                    <TextBlock Text="Start AudioDesk in the tray when you sign in, so channels, shortcuts and keep awake work right away."
+                                    <TextBlock Text="Start AudioDesk in the tray when you sign in, so channels and keep awake work right away."
                                                TextWrapping="Wrap" Margin="0,2,0,0" Style="{StaticResource SecondaryText}" />
                                 </StackPanel>
                                 <CheckBox x:Name="StartWithWindowsBox" Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center"

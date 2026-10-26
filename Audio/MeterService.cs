@@ -10,18 +10,13 @@ namespace AudioDesk.Audio;
 /// </summary>
 public sealed class MeterService : IDisposable
 {
-    /// <summary>How streams map to channels; rebuilt by the mixer after every app scan.</summary>
-    public sealed record ChannelMap(
-        IReadOnlyDictionary<uint, Channel> ProcessChannels,
-        string? ChatDeviceId,
-        IReadOnlySet<uint> VoiceProcesses,
-        string? MicDeviceId);
-
     private const int FrameMs = 33;
     private const float Falloff = 0.035f; // per frame, so peaks fade over ~1 s instead of flickering
 
     private readonly Thread _thread;
-    private volatile ChannelMap? _map;
+
+    // Which channel each process's streams belong to; rebuilt by the mixer after every app scan.
+    private volatile IReadOnlyDictionary<uint, Channel>? _map;
     private volatile bool _mapChanged = true;
     private volatile bool _enabled;
     private volatile bool _stopping;
@@ -48,7 +43,7 @@ public sealed class MeterService : IDisposable
         set => _enabled = value;
     }
 
-    public void SetMap(ChannelMap map)
+    public void SetMap(IReadOnlyDictionary<uint, Channel> map)
     {
         _map = map;
         _mapChanged = true;
@@ -134,7 +129,7 @@ public sealed class MeterService : IDisposable
         private readonly List<(Channel Channel, uint Pid, int Speakers, AudioMeterInformation Meter)> _surround = [];
         private readonly Dictionary<(Channel, uint), long[]> _lastHeard = [];
 
-        public void Rebuild(ChannelMap? map)
+        public void Rebuild(IReadOnlyDictionary<uint, Channel>? map)
         {
             Clear();
             if (map == null) return;
@@ -143,7 +138,6 @@ public sealed class MeterService : IDisposable
             foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
             {
                 _devices.Add(device);
-                bool isChatDevice = string.Equals(device.ID, map.ChatDeviceId, StringComparison.OrdinalIgnoreCase);
                 // Per-app meters see each stream in the device's own speaker layout, after any per-stream effect.
                 // An effect like the Dolby upmixer spreads stereo over all speakers, so skip those devices.
                 int speakers = device.AudioMeterInformation.PeakValues.Count;
@@ -153,9 +147,7 @@ public sealed class MeterService : IDisposable
                 {
                     var session = sessions[i];
                     uint pid = session.GetProcessID;
-                    if (!map.ProcessChannels.TryGetValue(pid, out var channel)) continue;
-                    // Discord-style voice on the Chat device counts as Chat (same rule as volume and ChatMix).
-                    if (isChatDevice && map.VoiceProcesses.Contains(pid)) channel = Channel.Chat;
+                    if (!map.TryGetValue(pid, out var channel)) continue;
                     _meters.Add((channel, session.AudioMeterInformation));
                     if (readLayouts) _surround.Add((channel, pid, speakers, session.AudioMeterInformation));
                 }
@@ -164,13 +156,6 @@ public sealed class MeterService : IDisposable
             // Forget apps that are gone.
             foreach (var key in _lastHeard.Keys.Where(k => !_surround.Any(s => (s.Channel, s.Pid) == k)).ToList())
                 _lastHeard.Remove(key);
-
-            if (map.MicDeviceId != null)
-            {
-                var mic = enumerator.GetDevice(map.MicDeviceId);
-                _devices.Add(mic);
-                _meters.Add((Channel.Mic, mic.AudioMeterInformation));
-            }
         }
 
         public Dictionary<Channel, float> ReadPeaks()

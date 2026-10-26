@@ -50,14 +50,12 @@ public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false, double k
     public bool IsCommunications => info.IsCommunications;
     public bool IsVirtual => info.IsVirtual;
     public bool CanMakeDefault => !info.IsDefault;
-    public bool CanMakeCommunications => !info.IsCommunications;
     public DataFlow Flow => info.Flow;
 
     public string Glyph
     {
         get
         {
-            if (info.Flow == DataFlow.Capture) return ""; // microphone
             if (ContainsAny(info.Name, "Headphone", "Headset", "Earphone")) return ""; // headphones
             if (ContainsAny(info.Name, "Digital", "SPDIF", "S/PDIF", "HDMI", "Optical", "NVIDIA")) return ""; // TV/receiver
             return ""; // speaker
@@ -71,7 +69,7 @@ public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false, double k
 /// <summary>One entry in a device drop-down. An empty id means "same as Game".</summary>
 public sealed record DeviceChoice(string Id, string Label, string Format = "");
 
-public sealed class AppChip(MixerApp app, ImageSource? icon, bool canMove, string badge = "") : ObservableObject
+public sealed class AppChip(MixerApp app, ImageSource? icon) : ObservableObject
 {
     private string _layout = "";
     public MixerApp App => app;
@@ -79,14 +77,7 @@ public sealed class AppChip(MixerApp app, ImageSource? icon, bool canMove, strin
     public string Name => app.Name;
     public ImageSource? Icon => icon;
     public bool IsPlaying => app.IsPlaying;
-    public bool CanMove => canMove;
-
-    /// <summary>Short note shown on the chip, e.g. "Voice" for an app whose voice plays on the Chat device.</summary>
-    public string Badge => badge;
-    public bool HasBadge => badge.Length > 0;
-    public string Tip => HasBadge
-        ? $"{app.Name} plays its voice on the Chat device, so it follows Chat's volume and ChatMix. Its other sounds are in {app.Channel}."
-        : $"{app.Name}: drag to another channel, or right-click.";
+    public string Tip => $"{app.Name}: drag to another channel, or right-click.";
 
     /// <summary>
     /// The speakers this app fed in the last few seconds ("Stereo", "5.1", "7.1", "Mono"); empty on stereo devices,
@@ -114,75 +105,6 @@ public sealed class AppChip(MixerApp app, ImageSource? icon, bool canMove, strin
         _ => $"{app.Name} is playing {_layout} audio: sound reached the centre, subwoofer or surround speakers in the last few seconds.",
     };
 }
-
-/// <summary>ChatMix slider: -100 = only Game, 0 = both at full volume, 100 = only Chat.</summary>
-public sealed class ChatMixViewModel(ChannelManager mixer, Action<string> report) : ObservableObject
-{
-    private double _value;
-    private bool _syncing;
-
-    public double Value
-    {
-        get => _value;
-        set
-        {
-            value = Math.Round(value);
-            if (value == _value) return;
-            _value = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(Text));
-            OnPropertyChanged(nameof(IsUnbalanced));
-            OnPropertyChanged(nameof(CanBalance));
-            if (_syncing) return;
-            try { mixer.SetChatMix((float)(value / 100.0)); }
-            catch (Exception ex) { report($"Couldn't change ChatMix: {ex.Message}"); }
-        }
-    }
-
-    public string Text => !_isEnabled ? "Off" : _value switch
-    {
-        0 => "Balanced",
-        < 0 => $"Chat {100 + _value:0}%",
-        _ => $"Game {100 - _value:0}%",
-    };
-
-    public bool IsUnbalanced => _value != 0;
-
-    private bool _isEnabled;
-
-    /// <summary>Only while Game and Chat both play on the headset (Chat directly or through NVIDIA Broadcast).</summary>
-    public bool IsEnabled
-    {
-        get => _isEnabled;
-        private set
-        {
-            if (_isEnabled == value) return;
-            _isEnabled = value;
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(IsDisabled));
-            OnPropertyChanged(nameof(CanBalance));
-            OnPropertyChanged(nameof(Text));
-        }
-    }
-
-    public bool IsDisabled => !_isEnabled;
-    public bool CanBalance => _isEnabled && IsUnbalanced;
-
-    public void Center() => Value = 0;
-
-    public void Sync()
-    {
-        _syncing = true;
-        try
-        {
-            Value = mixer.ChatMix * 100;
-            IsEnabled = mixer.IsChatMixActive;
-            OnPropertyChanged(nameof(CanBalance));
-        }
-        finally { _syncing = false; }
-    }
-}
-
 
 /// <summary>Settings → Updates: check GitHub for a newer release, download it and run its installer.</summary>
 public sealed class UpdateViewModel(ChannelManager mixer, Action exitForUpdate) : ObservableObject
@@ -291,9 +213,6 @@ public sealed class ProfilesViewModel(ChannelManager mixer, Action<string> repor
     private string _headsetId = "";
     private string _homeTheaterId = "";
 
-    public IReadOnlyList<ShortcutViewModel> Shortcuts { get; } =
-        HotkeySlot.ProfileActions.Select(a => new ShortcutViewModel(new HotkeySlot(null, a))).ToList();
-
     public bool IsHeadset => _active == Profile.Headset;
     public bool IsHomeTheater => _active == Profile.HomeTheater;
     public bool IsNotHeadset => !IsHeadset;
@@ -317,8 +236,39 @@ public sealed class ProfilesViewModel(ChannelManager mixer, Action<string> repor
         set => SetDevice(Profile.HomeTheater, ref _homeTheaterId, value);
     }
 
-    public string HeadsetTip => $"Game, Media and Aux on {Label(_headsetId)}. Chat isn't changed.";
-    public string HomeTheaterTip => $"Game, Media and Aux on {Label(_homeTheaterId)}. Chat stays on the headset.";
+    private bool _sonarAvailable;
+
+    /// <summary>The Sonar profile is offered when SteelSeries Sonar is installed.</summary>
+    public bool SonarAvailable
+    {
+        get => _sonarAvailable;
+        private set { _sonarAvailable = value; OnPropertyChanged(); }
+    }
+
+    private bool _sonarMode;
+
+    // Sonar is highlighted while every channel goes through Sonar; Headset/Home Theater can be highlighted at the same
+    // time, showing where Sonar plays.
+    public bool ShowSonarActive => _sonarAvailable && _sonarMode;
+    public bool ShowSonarInactive => _sonarAvailable && !_sonarMode;
+
+    public static string NameOf(Profile profile) => profile switch
+    {
+        Profile.Sonar => "Sonar",
+        Profile.Headset => "Headset",
+        _ => "Home Theater",
+    };
+
+    public string SonarTip => _sonarMode
+        ? "Everything goes through SteelSeries Sonar. Click to play Game, Media and Aux straight on their devices again."
+        : "Send Game, Media and Aux all through SteelSeries Sonar.";
+
+    public string HeadsetTip => _sonarMode
+        ? $"Sonar plays Game, Media and Aux on {Label(_headsetId)}."
+        : $"Game, Media and Aux straight on {Label(_headsetId)}, not through Sonar.";
+    public string HomeTheaterTip => _sonarMode
+        ? $"Sonar plays Game, Media and Aux on {Label(_homeTheaterId)}."
+        : $"Game, Media and Aux straight on {Label(_homeTheaterId)}, not through Sonar.";
 
     private string Label(string id) => _choices.FirstOrDefault(c => c.Id == id)?.Label ?? "no device";
 
@@ -344,9 +294,11 @@ public sealed class ProfilesViewModel(ChannelManager mixer, Action<string> repor
             _headsetId = mixer.ProfileDeviceId(Profile.Headset) ?? "";
             _homeTheaterId = mixer.ProfileDeviceId(Profile.HomeTheater) ?? "";
             _active = mixer.ActiveProfile();
-            foreach (var shortcut in Shortcuts) shortcut.Sync(mixer);
+            SonarAvailable = mixer.IsSonarAvailable;
+            _sonarMode = mixer.IsSonarMode;
             foreach (var name in new[] { nameof(HeadsetDeviceId), nameof(HomeTheaterDeviceId), nameof(HeadsetTip), nameof(HomeTheaterTip),
-                                         nameof(IsHeadset), nameof(IsHomeTheater), nameof(IsNotHeadset), nameof(IsNotHomeTheater) })
+                                         nameof(IsHeadset), nameof(IsHomeTheater), nameof(IsNotHeadset), nameof(IsNotHomeTheater),
+                                         nameof(ShowSonarActive), nameof(ShowSonarInactive), nameof(SonarTip) })
                 OnPropertyChanged(name);
         }
         finally
@@ -356,60 +308,52 @@ public sealed class ProfilesViewModel(ChannelManager mixer, Action<string> repor
     }
 }
 
-/// <summary>One shortcut row in a channel's or the profiles' settings popup.</summary>
-public sealed class ShortcutViewModel(HotkeySlot slot) : ObservableObject
+/// <summary>A row in Game's searchable Sonar preset list.</summary>
+public sealed record PresetItem(SonarPreset Preset, bool IsFavorite, bool IsSelected)
 {
-    private string _text = "Not set";
-    private bool _hasHotkey;
-    private bool _isRecording;
-    private string? _error;
+    public string Name => Preset.Name;
+}
 
-    public HotkeySlot Slot => slot;
-    public string Label => slot.Label;
+/// <summary>
+/// One row of a channel's "Sonar preset for each device" list. The first row (no device) is the default preset, for
+/// devices without their own; the other rows are a device and its own preset, or "Use default".
+/// </summary>
+public sealed class PresetLinkViewModel(Channel channel, DeviceChoice? device, IReadOnlyList<SonarPreset> choices, string presetId,
+                                        ChannelManager mixer, Action<string> report) : ObservableObject
+{
+    /// <summary>First choice of the default row: no default, the preset is left alone.</summary>
+    public static readonly SonarPreset DontChange = new("", "Don't change");
 
-    public void Sync(ChannelManager mixer)
+    /// <summary>First choice of a device row: no preset of its own.</summary>
+    public static readonly SonarPreset UseDefault = new("", "Use default");
+
+    private string _presetId = presetId;
+
+    public bool IsDefault => device == null;
+    public string DeviceName => device?.Label ?? "Default";
+    public IReadOnlyList<SonarPreset> Choices => choices;
+
+    public string PresetId
     {
-        if (!_isRecording) Show(mixer.GetHotkey(slot), mixer.HotkeyError(slot));
-    }
-
-    public bool HasHotkey
-    {
-        get => _hasHotkey;
-        private set { _hasHotkey = value; OnPropertyChanged(); }
-    }
-
-    public bool IsRecording
-    {
-        get => _isRecording;
-        set { _isRecording = value; OnPropertyChanged(); OnPropertyChanged(nameof(ButtonText)); }
-    }
-
-    public string ButtonText => _isRecording ? "Press keys…" : _text;
-
-    private string? _localError;
-
-    public string? Error
-    {
-        get => _error;
-        private set { _error = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasError)); }
-    }
-
-    public bool HasError => !string.IsNullOrEmpty(_error);
-
-    /// <summary>A message from the recorder itself (e.g. keys already used); kept until the next recording.</summary>
-    public void SetLocalError(string? message)
-    {
-        _localError = message;
-        Error = message;
-    }
-
-    /// <summary>Shows the stored shortcut and any registration problem reported by Windows.</summary>
-    public void Show(Hotkey? hotkey, string? registrationError)
-    {
-        _text = hotkey?.ToString() ?? "Not set";
-        HasHotkey = hotkey != null;
-        OnPropertyChanged(nameof(ButtonText));
-        Error = registrationError ?? _localError;
+        get => _presetId;
+        set
+        {
+            if (value == null || value == _presetId) return;
+            _presetId = value;
+            OnPropertyChanged();
+            var preset = choices.FirstOrDefault(p => p.Id == value && p.Id.Length > 0);
+            if (device == null)
+            {
+                mixer.SetDefaultPreset(channel, preset);
+                report(preset == null ? $"{channel}: no default Sonar preset." : $"{channel}: default Sonar preset is {preset.Name}.");
+            }
+            else
+            {
+                mixer.SetPresetLink(channel, device.Id, preset);
+                report(preset == null ? $"{channel}: {device.Label} uses the default Sonar preset."
+                                      : $"{channel}: Sonar switches to {preset.Name} on {device.Label}.");
+            }
+        }
     }
 }
 
@@ -429,25 +373,18 @@ public sealed class ChannelViewModel : ObservableObject
         _mixer = mixer;
         _report = report;
         Apps.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsEmpty));
-        Shortcuts = HotkeySlot.ChannelActions.Select(a => new ShortcutViewModel(new HotkeySlot(channel, a))).ToList();
     }
-
-    public IReadOnlyList<ShortcutViewModel> Shortcuts { get; }
 
     public static string GlyphFor(Channel channel) => channel switch
     {
         Channel.Game => "",  // game controller
-        Channel.Chat => "",  // message
         Channel.Media => "", // music note
-        Channel.Aux => "",   // speaker
-        _ => "",             // microphone
+        _ => "",           // speaker
     };
 
     public Channel Channel { get; }
     public string Title => Channel.ToString();
-    public bool IsMic => Channel == Channel.Mic;
-    public bool AcceptsApps => !IsMic;
-    public string EmptyHint => IsMic ? "No apps are using the mic" : "Drag apps here";
+    public string EmptyHint => "Drag apps here";
     public ObservableCollection<AppChip> Apps { get; } = [];
     public bool IsEmpty => Apps.Count == 0;
 
@@ -472,9 +409,10 @@ public sealed class ChannelViewModel : ObservableObject
             if (_syncing) return;
             try
             {
-                _mixer.SetDevice(Channel, value);
+                bool viaSonar = _mixer.SonarOutputId(Channel) != null;
+                _mixer.PickDevice(Channel, value);
                 string label = _choices.FirstOrDefault(c => c.Id == value)?.Label ?? "";
-                _report(IsMic ? $"Mic now uses {label}." : $"{Title} now plays on {label}.");
+                _report(viaSonar ? $"Sonar now plays {Title} on {label}." : $"{Title} now plays on {label}.");
             }
             catch (Exception ex)
             {
@@ -483,36 +421,191 @@ public sealed class ChannelViewModel : ObservableObject
         }
     }
 
-    private bool _noiseRemoval;
-    private bool _noiseRemovalAvailable;
+    private bool _throughSonar;
+    private bool _sonarAvailable;
 
-    /// <summary>Shown on Chat and Mic when NVIDIA Broadcast is installed.</summary>
-    public bool NoiseRemovalAvailable
+    /// <summary>Shown when SteelSeries Sonar is installed.</summary>
+    public bool SonarAvailable
     {
-        get => _noiseRemovalAvailable;
-        private set { _noiseRemovalAvailable = value; OnPropertyChanged(); }
+        get => _sonarAvailable;
+        private set { _sonarAvailable = value; OnPropertyChanged(); }
     }
 
-    public bool NoiseRemoval
+
+    public bool ThroughSonar
     {
-        get => _noiseRemoval;
+        get => _throughSonar;
         set
         {
-            if (value == _noiseRemoval) return;
-            _noiseRemoval = value;
+            if (value == _throughSonar) return;
+            _throughSonar = value;
             OnPropertyChanged();
             if (_syncing) return;
             try
             {
-                _mixer.SetNoiseRemoval(Channel, value);
+                _mixer.SetThroughSonar(Channel, value);
                 _report(value
-                    ? $"Noise removal is on for {Title}. Its audio now goes through NVIDIA Broadcast."
-                    : $"Noise removal is off for {Title}.");
+                    ? $"{Title} now goes through SteelSeries Sonar."
+                    : $"{Title} no longer goes through Sonar.");
             }
             catch (Exception ex)
             {
-                _report($"Couldn't change noise removal for {Title}: {ex.Message}");
+                _report($"Couldn't change Sonar for {Title}: {ex.Message}");
             }
+        }
+    }
+
+    private List<SonarPreset> _presets = [];
+    private string _presetId = "";
+
+    /// <summary>Sonar presets for the picker (your Sonar favourites) while the channel goes through Sonar.</summary>
+    public List<SonarPreset> Presets
+    {
+        get => _presets;
+        private set
+        {
+            _presets = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasPresets));
+            OnPropertyChanged(nameof(ShowPresetCombo));
+            OnPropertyChanged(nameof(ShowPresetSearch));
+        }
+    }
+
+    public bool HasPresets => _presets.Count > 0;
+
+    // Game has hundreds of Sonar presets, so it gets a searchable list (favourites only by default) instead of the
+    // drop-down Media and Aux use.
+    private bool UsesPresetSearch => Channel == Channel.Game;
+    public bool ShowPresetCombo => HasPresets && !UsesPresetSearch;
+    public bool ShowPresetSearch => HasPresets && UsesPresetSearch;
+
+    public string SelectedPresetName =>
+        _mixer.AllSonarPresets(Channel).Concat(_presets).FirstOrDefault(p => p.Id == _presetId)?.Name ?? "";
+
+    private bool _isPresetPickerOpen;
+    private string _presetSearch = "";
+    private bool _favoritesOnly = true;
+    private List<PresetItem> _filteredPresets = [];
+
+    public bool IsPresetPickerOpen
+    {
+        get => _isPresetPickerOpen;
+        set
+        {
+            if (value == _isPresetPickerOpen) return;
+            _isPresetPickerOpen = value;
+            OnPropertyChanged();
+            if (value) PresetSearch = ""; // each time it opens, start with the full list
+        }
+    }
+
+    public string PresetSearch
+    {
+        get => _presetSearch;
+        set
+        {
+            if ((value ?? "") == _presetSearch) return;
+            _presetSearch = value ?? "";
+            OnPropertyChanged();
+            RefreshFilteredPresets();
+        }
+    }
+
+    /// <summary>On (the default): only the presets marked as favourites in Sonar. Off: every preset.</summary>
+    public bool FavoritesOnly
+    {
+        get => _favoritesOnly;
+        set
+        {
+            if (value == _favoritesOnly) return;
+            _favoritesOnly = value;
+            OnPropertyChanged();
+            RefreshFilteredPresets();
+        }
+    }
+
+    public List<PresetItem> FilteredPresets
+    {
+        get => _filteredPresets;
+        private set { _filteredPresets = value; OnPropertyChanged(); OnPropertyChanged(nameof(NoPresetsFound)); }
+    }
+
+    public bool NoPresetsFound => _filteredPresets.Count == 0;
+
+    private void RefreshFilteredPresets()
+    {
+        if (!UsesPresetSearch) return;
+        var favorites = _mixer.FavoriteSonarPresets(Channel);
+        var favoriteIds = favorites.Select(p => p.Id).ToHashSet();
+        var source = _favoritesOnly ? favorites : _mixer.AllSonarPresets(Channel);
+        var items = source
+            .Where(p => _presetSearch.Length == 0 || p.Name.Contains(_presetSearch, StringComparison.OrdinalIgnoreCase))
+            .Select(p => new PresetItem(p, favoriteIds.Contains(p.Id), p.Id == _presetId))
+            .ToList();
+        if (!items.SequenceEqual(_filteredPresets)) FilteredPresets = items;
+    }
+
+    /// <summary>A preset clicked in Game's searchable list.</summary>
+    public void PickPreset(SonarPreset preset)
+    {
+        IsPresetPickerOpen = false;
+        if (preset.Id == _presetId) return;
+        _presetId = preset.Id;
+        OnPropertyChanged(nameof(PresetId));
+        OnPropertyChanged(nameof(SelectedPresetName));
+        RefreshFilteredPresets();
+        _mixer.SelectSonarPreset(Channel, preset);
+        _report($"Sonar preset for {Title}: {preset.Name}.");
+    }
+
+    /// <summary>Media/Aux settings: which Sonar preset each device switches to (shown while Sonar has favourites).</summary>
+    public ObservableCollection<PresetLinkViewModel> PresetLinks { get; } = [];
+
+    public bool ShowPresetLinks => PresetLinks.Count > 0;
+
+    private string _presetLinksKey = "";
+
+    /// <summary>Rebuilds the rows only when the devices, favourites or links change, so an open drop-down isn't reset.</summary>
+    private void SyncPresetLinks()
+    {
+        var favorites = ChannelManager.SupportsPresetLinks(Channel) ? _mixer.FavoriteSonarPresets(Channel) : [];
+        var devices = favorites.Count > 0 ? _mixer.ProfileChoices() : [];
+        string defaultId = favorites.Count > 0 ? _mixer.DefaultPresetId(Channel) ?? "" : "";
+        var links = devices.Select(d => _mixer.LinkedPresetId(Channel, d.Id) ?? "").ToList();
+        string key = string.Join("|", devices.Select(d => d.Id)) + "#" + string.Join("|", favorites.Select(p => p.Id)) + "#" +
+                     defaultId + "#" + string.Join("|", links);
+        if (key == _presetLinksKey) return;
+        _presetLinksKey = key;
+
+        // A linked preset that's no longer a favourite stays listed, so the row doesn't look unlinked.
+        List<SonarPreset> Choices(SonarPreset first, string linked)
+        {
+            var choices = new List<SonarPreset> { first };
+            choices.AddRange(favorites);
+            if (linked.Length > 0 && choices.All(p => p.Id != linked)) choices.Add(new SonarPreset(linked, "Linked preset (not a favourite)"));
+            return choices;
+        }
+
+        PresetLinks.Clear();
+        if (favorites.Count > 0)
+            PresetLinks.Add(new PresetLinkViewModel(Channel, null, Choices(PresetLinkViewModel.DontChange, defaultId), defaultId, _mixer, _report));
+        for (int i = 0; i < devices.Count; i++)
+            PresetLinks.Add(new PresetLinkViewModel(Channel, devices[i], Choices(PresetLinkViewModel.UseDefault, links[i]), links[i], _mixer, _report));
+        OnPropertyChanged(nameof(ShowPresetLinks));
+    }
+
+    public string PresetId
+    {
+        get => _presetId;
+        set
+        {
+            if (value == null || value == _presetId) return;
+            _presetId = value;
+            OnPropertyChanged();
+            if (_syncing || _presets.FirstOrDefault(p => p.Id == value) is not { } preset) return;
+            _mixer.SelectSonarPreset(Channel, preset);
+            _report($"Sonar preset for {Title}: {preset.Name}.");
         }
     }
 
@@ -530,8 +623,13 @@ public sealed class ChannelViewModel : ObservableObject
         }
     }
 
-    /// <summary>What the selected device actually runs at, e.g. "5.1 · 48 kHz · 24-bit".</summary>
-    public string Format => _choices.FirstOrDefault(c => c.Id == _deviceId)?.Format ?? "";
+    private string? _sonarFormat;
+
+    /// <summary>What the channel actually runs at, e.g. "5.1 · 48 kHz · 24-bit": the selected device's format, or
+    /// Sonar's processing format while the channel goes through Sonar.</summary>
+    public string Format => _sonarFormat != null
+        ? $"Sonar · {_sonarFormat}"
+        : _choices.FirstOrDefault(c => c.Id == _deviceId)?.Format ?? "";
 
     public string SettingsTitle => $"{Title} settings";
 
@@ -553,8 +651,8 @@ public sealed class ChannelViewModel : ObservableObject
 
     /// <summary>
     /// Live audio level (0–1) of this channel for the meter under the volume slider. Windows measures streams
-    /// before their volume is applied, so the level is scaled by what you actually hear: the channel volume
-    /// (with ChatMix) for outputs, the mic level for Mic. 0 while muted.
+    /// before their volume is applied, so the level is scaled by what you actually hear: the channel volume.
+    /// 0 while muted.
     /// </summary>
     public double Meter
     {
@@ -606,15 +704,13 @@ public sealed class ChannelViewModel : ObservableObject
         // The meter is drawn inside the slider track, filling the coloured part (left of the knob) in proportion
         // to the level, like Windows does. That part ends at the knob's left edge, roughly 80% of the way to the
         // volume position (the track spans the full width; the knob is about a fifth of it across).
-        // ChatMix is included: heard / volume is the ChatMix factor for Game/Chat (1 otherwise and for Mic).
-        double heard = IsMic ? volume : _mixer.HeardVolume(Channel);
         double filledPart = volume * 0.8;
-        Meter = filledPart * Math.Clamp(level * heard / volume, 0.0, 1.0);
+        Meter = filledPart * Math.Clamp(level, 0.0, 1.0);
     }
 
     private bool _isUsingFallback;
 
-    /// <summary>The saved device is missing (e.g. NVIDIA Broadcast closed), so the channel uses a stand-in.</summary>
+    /// <summary>The saved device is missing (e.g. unplugged, or Sonar closed), so the channel uses a stand-in.</summary>
     public bool IsUsingFallback
     {
         get => _isUsingFallback;
@@ -665,28 +761,48 @@ public sealed class ChannelViewModel : ObservableObject
         catch (Exception ex) { _report($"Couldn't change the {Title} volume: {ex.Message}"); }
     }
 
+    /// <summary>Pulls just the volume and mute from the mixer (they were changed elsewhere, e.g. on the knob).</summary>
+    public void SyncLevel()
+    {
+        var (volume, muted) = _mixer.GetLevel(Channel);
+        _volume = Math.Round(volume * 100);
+        _muted = muted;
+        OnPropertyChanged(nameof(Volume));
+        OnPropertyChanged(nameof(VolumeText));
+        OnPropertyChanged(nameof(IsMuted));
+        OnPropertyChanged(nameof(MuteGlyph));
+    }
+
     /// <summary>Pulls the current state from the mixer without echoing changes back to it.</summary>
     public void Sync()
     {
         _syncing = true;
         try
         {
-            var choices = _mixer.Choices(Channel);
+            // While the channel goes through Sonar, the picker shows (and changes) the device Sonar plays it on.
+            var choices = _mixer.PickerChoices(Channel);
             if (!choices.SequenceEqual(_choices)) Choices = choices;
 
-            _deviceId = _mixer.DeviceId(Channel) ?? "";
+            _deviceId = _mixer.PickerDeviceId(Channel) ?? "";
+            _sonarFormat = _mixer.SonarFormat(Channel);
+
+            var presets = _mixer.SonarPresets(Channel);
+            if (!presets.SequenceEqual(_presets)) Presets = presets;
+            _presetId = _mixer.SelectedSonarPreset(Channel)?.Id ?? "";
+            OnPropertyChanged(nameof(PresetId));
+            OnPropertyChanged(nameof(SelectedPresetName));
+            RefreshFilteredPresets();
+            SyncPresetLinks();
             OnPropertyChanged(nameof(DeviceId));
             OnPropertyChanged(nameof(Format));
             OnPropertyChanged(nameof(DeviceName));
             IsSwitching = _mixer.IsSwitching(Channel);
             IsUsingFallback = _mixer.IsUsingFallback(Channel);
-            IsKeepAwakePlaying = !IsMic && _mixer.IsKeepAwakePlaying(_mixer.DeviceId(Channel));
+            IsKeepAwakePlaying = _mixer.IsKeepAwakePlaying(_mixer.DeviceId(Channel));
 
-            foreach (var shortcut in Shortcuts) shortcut.Sync(_mixer);
-
-            NoiseRemovalAvailable = _mixer.BroadcastDeviceId(Channel) != null;
-            _noiseRemoval = _mixer.IsNoiseRemovalOn(Channel);
-            OnPropertyChanged(nameof(NoiseRemoval));
+            SonarAvailable = _mixer.SonarDeviceId(Channel) != null;
+            _throughSonar = _mixer.IsThroughSonar(Channel);
+            OnPropertyChanged(nameof(ThroughSonar));
 
             var (volume, muted) = _mixer.GetLevel(Channel);
             _volume = Math.Round(volume * 100);
@@ -696,20 +812,15 @@ public sealed class ChannelViewModel : ObservableObject
             OnPropertyChanged(nameof(IsMuted));
             OnPropertyChanged(nameof(MuteGlyph));
 
-            // Chat also lists apps from other channels whose voice plays on the Chat device (Discord).
-            var apps = _mixer.Apps
-                .Where(a => IsMic ? a.HasInput : a.HasOutput && (a.Channel == Channel || (Channel == Channel.Chat && _mixer.PlaysOnChat(a))))
-                .ToList();
+            var apps = _mixer.Apps.Where(a => a.Channel == Channel && _mixer.IsShown(a)).ToList();
             bool same = apps.Count == Apps.Count &&
-                        apps.Zip(Apps).All(p => p.First.Key == p.Second.Key && p.First.IsPlaying == p.Second.IsPlaying &&
-                                                p.First.Channel == p.Second.App.Channel);
+                        apps.Zip(Apps).All(p => p.First.Key == p.Second.Key && p.First.IsPlaying == p.Second.IsPlaying);
             if (!same)
             {
                 Apps.Clear();
                 foreach (var app in apps)
                 {
-                    bool voiceOnly = app.Channel != Channel && !IsMic;
-                    var chip = new AppChip(app, IconHelper.ForExecutable(app.ExePath), canMove: !IsMic && !voiceOnly, badge: voiceOnly ? "Voice" : "");
+                    var chip = new AppChip(app, IconHelper.ForExecutable(app.ExePath));
                     ApplyLayout(chip);
                     Apps.Add(chip);
                 }

@@ -37,15 +37,16 @@ public sealed class AudioService : IDisposable
     private static readonly Guid SubtypeDolbyDigital = new("00000092-0000-0010-8000-00aa00389b71");
     private static readonly Guid SubtypeDts = new("00000008-0000-0010-8000-00aa00389b71");
 
-    private static readonly string[] VirtualMarkers = ["Sonar", "Virtual", "CABLE", "VB-Audio", "Voicemeeter", "Nahimic"];
+    private static readonly string[] VirtualMarkers = ["Sonar", "Virtual", "CABLE", "VB-Audio", "Voicemeeter", "Nahimic", "NVIDIA Broadcast"];
 
     // Processes that hold audio sessions but are never worth routing.
     private static readonly HashSet<string> HiddenProcesses = new(StringComparer.OrdinalIgnoreCase)
     {
         "audiodg", "ApplicationFrameHost", "TextInputHost", "ShellExperienceHost", "StartMenuExperienceHost",
         "SearchHost", "LockApp", "SystemSettingsBroker", "WidgetBoard", "Widgets",
-        // Broadcast plays its cleaned audio on a device it picks itself; routing it could loop it into its own input.
-        "NVIDIA Broadcast",
+        // Broadcast and Sonar play their processed audio on a device they pick themselves; routing them could loop it
+        // into their own input, and a channel volume on them would change everything that goes through them.
+        "NVIDIA Broadcast", "SteelSeriesSonar",
     };
 
     private readonly MMDeviceEnumerator _enumerator = new();

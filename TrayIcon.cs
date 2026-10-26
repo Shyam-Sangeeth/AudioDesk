@@ -50,9 +50,10 @@ internal sealed class TrayIcon : IDisposable
         menu.Items.Clear();
 
         var active = _mixer.ActiveProfile();
-        foreach (var (profile, label) in new[] { (Profile.Headset, "Headset"), (Profile.HomeTheater, "Home Theater") })
+        foreach (var (profile, label) in new[] { (Profile.Sonar, "Sonar"), (Profile.Headset, "Headset"), (Profile.HomeTheater, "Home Theater") })
         {
-            var item = new Forms.ToolStripMenuItem(label) { Checked = active == profile };
+            if (profile == Profile.Sonar && !_mixer.IsSonarAvailable) continue;
+            var item = new Forms.ToolStripMenuItem(label) { Checked = profile == Profile.Sonar ? _mixer.IsSonarMode : active == profile };
             item.Click += (_, _) =>
             {
                 try { _mixer.ApplyProfile(profile); }
@@ -74,8 +75,8 @@ internal sealed class TrayIcon : IDisposable
 
     private Forms.ToolStripMenuItem ChannelMenu(Channel channel)
     {
-        var choices = _mixer.Choices(channel);
-        string current = _mixer.DeviceId(channel) ?? "";
+        var choices = _mixer.PickerChoices(channel);
+        string current = _mixer.PickerDeviceId(channel) ?? "";
         string currentLabel = choices.FirstOrDefault(c => c.Id == current)?.Label ?? "None";
 
         var item = new Forms.ToolStripMenuItem($"{channel}: {currentLabel}");
@@ -84,7 +85,7 @@ internal sealed class TrayIcon : IDisposable
             var sub = new Forms.ToolStripMenuItem(choice.Label) { Checked = choice.Id == current };
             sub.Click += (_, _) =>
             {
-                try { _mixer.SetDevice(channel, choice.Id); }
+                try { _mixer.PickDevice(channel, choice.Id); }
                 catch (Exception ex) { ShowHint($"Couldn't change the {channel} device", ex.Message); }
             };
             item.DropDownItems.Add(sub);

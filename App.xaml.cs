@@ -21,11 +21,10 @@ public partial class App : Application
     private TrayIcon? _tray;
     private MainWindow? _window;
     private DispatcherTimer? _debounce;
-    private HotkeyService? _hotkeys;
     private KeepAwakeService? _keepAwake;
     private MeterService? _meters;
     private UpdateViewModel? _updates;
-    private OsdWindow? _osd;
+    private LocalApi? _api;
     private bool _exiting;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -116,10 +115,6 @@ public partial class App : Application
             _window.Hide();
         };
 
-        _osd = new OsdWindow();
-        _hotkeys = new HotkeyService();
-        _mixer.HotkeysChanged += RegisterHotkeys;
-
         // Quiet noise on devices that must not fall asleep (e.g. a soundbar on optical), but only while
         // a channel uses them; re-checked whenever channels, profiles or devices change.
         _keepAwake = new KeepAwakeService();
@@ -130,7 +125,9 @@ public partial class App : Application
         ApplyKeepAwake();
 
         _mixer.Start();
-        RegisterHotkeys();
+        // For Knob Hub's AudioDesk app (and anything else on this PC that wants the channels).
+        _api = new LocalApi(_mixer, Dispatcher);
+        _api.Start();
         CheckForUpdatesLater();
         if (!e.Args.Contains("--minimized"))
             ShowWindow();
@@ -148,79 +145,6 @@ public partial class App : Application
         if (signature == _keepAwakeApplied) return;
         _keepAwakeApplied = signature;
         _keepAwake.Apply(active);
-    }
-
-    /// <summary>(Re)registers every channel shortcut with Windows and reports combinations other apps own.</summary>
-    private void RegisterHotkeys()
-    {
-        if (_hotkeys == null || _mixer == null) return;
-        _hotkeys.UnregisterAll();
-        if (_mixer.IsRecordingHotkey) return; // let the keys reach the recorder
-
-        var errors = new List<(HotkeySlot, string)>();
-        foreach (var (slot, hotkey) in _mixer.AllHotkeys())
-        {
-            bool repeat = slot.Action is HotkeyAction.VolumeUp or HotkeyAction.VolumeDown; // holding the keys keeps changing volume
-            if (!_hotkeys.Register(hotkey, repeat, () => OnHotkey(slot)))
-                errors.Add((slot, $"{hotkey} is already used by another app."));
-        }
-        _mixer.SetHotkeyErrors(errors);
-    }
-
-    private void OnHotkey(HotkeySlot slot)
-    {
-        if (_mixer == null || _osd == null) return;
-        if (slot.Channel is not { } channel)
-        {
-            OnProfileHotkey(slot.Action);
-            return;
-        }
-
-        var action = slot.Action;
-        string glyph = ChannelViewModel.GlyphFor(channel);
-        try
-        {
-            switch (action)
-            {
-                case HotkeyAction.NextDevice:
-                    _osd.ShowMessage(glyph, channel.ToString(), _mixer.CycleDevice(channel));
-                    break;
-                case HotkeyAction.VolumeUp:
-                case HotkeyAction.VolumeDown:
-                    float volume = _mixer.StepVolume(channel, action == HotkeyAction.VolumeUp ? 0.05f : -0.05f);
-                    _osd.ShowMessage(glyph, $"{channel} volume", $"{Math.Round(volume * 100)}%");
-                    break;
-                case HotkeyAction.Mute:
-                    bool muted = _mixer.ToggleMute(channel);
-                    _osd.ShowMessage(muted ? "" : glyph, channel.ToString(), muted ? "Muted" : "Unmuted");
-                    break;
-            }
-        }
-        catch (Exception ex)
-        {
-            _osd.ShowMessage("", channel.ToString(), ex.Message);
-        }
-    }
-
-    private void OnProfileHotkey(HotkeyAction action)
-    {
-        if (_mixer == null || _osd == null) return;
-        try
-        {
-            Profile profile = action switch
-            {
-                HotkeyAction.HeadsetProfile => Profile.Headset,
-                HotkeyAction.HomeTheaterProfile => Profile.HomeTheater,
-                _ => _mixer.ActiveProfile() == Profile.Headset ? Profile.HomeTheater : Profile.Headset,
-            };
-            _mixer.ApplyProfile(profile);
-            _osd.ShowMessage(profile == Profile.Headset ? "" : "", "Profile",
-                             profile == Profile.Headset ? "Headset" : "Home Theater");
-        }
-        catch (Exception ex)
-        {
-            _osd.ShowMessage("", "Profile", ex.Message);
-        }
     }
 
     private void ShowWindow()
@@ -277,7 +201,7 @@ public partial class App : Application
     {
         if (_exiting) return;
         _exiting = true;
-        _hotkeys?.Dispose();
+        _api?.Dispose();
         _keepAwake?.Dispose();
         _meters?.Dispose();
         _mixer?.Dispose();
