@@ -160,8 +160,8 @@ In each card:
   reaches every speaker before AudioDesk can see it.
 
 **When a device disappears** (unplugged, or Sonar closed), Media and Aux keep working: the channel temporarily
-uses the device it used before Sonar, otherwise your headset, otherwise Game's device. The card says *Saved device is unavailable, using this one for now*, and the channel
-goes back to the saved device by itself when it returns.
+uses the device it used before Sonar, otherwise your headset, otherwise Game's device. The card says *Saved device
+is unavailable, using this one for now*, and the channel goes back to the saved device by itself when it returns.
 
 ### Moving apps between channels
 
@@ -208,6 +208,8 @@ Each channel has a **⚙** button that opens its settings:
 ![Channel settings](docs/screenshots/channel-settings.png)
 
 - **Device:** the full device name (the drop-down cuts long names off) and its real format.
+- **Sonar preset for each device** (Media and Aux, while the channel goes through Sonar): the preset Sonar
+  switches to on each device; see [Through Sonar](#through-sonar-steelseries-sonar).
 - **Windows sound settings:** opens the classic Sound control panel.
 
 ### Through Sonar (SteelSeries Sonar)
@@ -249,9 +251,9 @@ stays until the device changes again. Links are saved in `mixer.json`.
 SteelSeries GG's own Sonar page doesn't refresh when AudioDesk changes a preset or device: Sonar applies the change
 right away, but GG shows it only after you switch pages in GG or reopen it.
 
-The format line shows the format Sonar processes the channel in,
-e.g. *Sonar · 7.1 · 96 kHz · 24-bit*. This uses the local connection SteelSeries GG's own Sonar page uses, so it needs Sonar in **Classic**
-mode; it isn't an official API and could stop working after a GG update.
+The format line shows the format Sonar processes the channel in, e.g. *Sonar · 7.1 · 96 kHz · 24-bit*. This uses
+the local connection SteelSeries GG's own Sonar page uses, so it needs Sonar in **Classic** mode; it isn't an
+official API and could stop working after a GG update.
 
 To switch all three at once, use the [profiles](#profiles-sonar-headset-and-home-theater): **Sonar** sends every
 channel through Sonar (click it again to turn Sonar off for all of them), and **Headset** or **Home Theater**
@@ -362,9 +364,10 @@ Settings are saved to:
 %APPDATA%\AudioDesk\mixer.json
 ```
 
-It contains the channel devices, volumes and mute states, which channel each app belongs to (by process name),
-profile devices and the kept-awake devices with their noise levels. It's plain JSON. To start
-over, quit AudioDesk and delete the file.
+It contains the channel devices (and the device each goes back to after Sonar), volumes and mute states, the Sonar
+preset linked to each device, which channel each app belongs to (by process name), profile devices, the
+kept-awake devices with their noise levels and whether to check for updates. It's plain JSON. To start over, quit
+AudioDesk and delete the file.
 
 Windows also remembers per-app device choices itself. To clear those: *Settings → System → Sound → Volume
 mixer → Reset*.
@@ -461,24 +464,24 @@ update check reads the latest release, so that's all it takes for installed copi
 
 ```
 AudioDesk/
-├─ App.xaml(.cs)            Startup, single instance, tray, --selftest
-├─ MainWindow.xaml(.cs)     Mixer and Devices tabs, popups, drag-and-drop
+├─ App.xaml(.cs)            Startup, single instance, tray, local API, --selftest
+├─ MainWindow.xaml(.cs)     Mixer, Devices and Settings tabs, popups, preset search, drag-and-drop
 ├─ ViewModels.cs            Channel and profile view models
 ├─ TrayIcon.cs              Tray icon and its menu
 ├─ StartupSetting.cs        Start with Windows (per-user Run entry)
 ├─ Updates/UpdateService.cs GitHub release check, verified installer download, runs the installer
 ├─ LocalApi.cs              Local API for other apps (named pipe, JSON lines)
 ├─ IconHelper.cs            App icon and app-icon lookup
-├─ Converters.cs            XAML helpers (popup placement, inverse bool)
+├─ Converters.cs            XAML helpers (popup placement, placeholder text, inverse bool)
 ├─ Audio/
 │  ├─ AudioService.cs       Devices (cached), formats, audio sessions, session/device volume
 │  ├─ KeepAwakeService.cs   Quiet noise streams that keep receivers/soundbars awake
 │  ├─ MeterService.cs       Live per-channel level meters and per-app speaker tags (background thread)
-│  ├─ SonarClient.cs        Reads and changes the device each Sonar channel plays on (Sonar's local web server)
+│  ├─ SonarClient.cs        Sonar's local web server: each Sonar channel's device, presets, volume and mute
 │  ├─ AudioEffects.cs       Detects enhancements that remix each stream (so speaker tags would mislead)
 │  └─ Interop.cs            IPolicyConfig (default devices), IAudioPolicyConfigFactory (per-app routing)
 ├─ Mixer/
-│  └─ ChannelManager.cs     Channels, routing enforcement, profiles, settings file
+│  └─ ChannelManager.cs     Channels, routing enforcement, through Sonar, profiles, settings file
 ├─ Assets/                  Logo (SVG, PNG), AudioDesk.ico, make-icons.ps1
 ├─ installer/               WiX installer: Package.wxs, build-installer.ps1, artwork (make-installer-art.ps1)
 └─ docs/screenshots/        Images used in this README
