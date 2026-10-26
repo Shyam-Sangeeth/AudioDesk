@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Text.Json.Nodes;
 
@@ -36,7 +35,7 @@ public sealed class SonarClient : IDisposable
     private readonly HttpClient _gg = new(new HttpClientHandler
     {
         ServerCertificateCustomValidationCallback = (request, _, _, _) =>
-            request.RequestUri is { } uri && IPAddress.TryParse(uri.Host, out var ip) && IPAddress.IsLoopback(ip),
+            request.RequestUri is { } uri && uri.IsLoopback,
     }) { Timeout = TimeSpan.FromSeconds(2) };
 
     private readonly HttpClient _sonar = new() { Timeout = TimeSpan.FromSeconds(2) };
@@ -173,7 +172,7 @@ public sealed class SonarClient : IDisposable
         string gg = props?["ggEncryptedAddress"]?.GetValue<string>() ?? throw new InvalidOperationException("SteelSeries GG isn't running.");
         var apps = JsonNode.Parse(_gg.GetStringAsync($"https://{gg}/subApps").GetAwaiter().GetResult());
         string address = apps?["subApps"]?["sonar"]?["metadata"]?["webServerAddress"]?.GetValue<string>() ?? "";
-        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || !IPAddress.TryParse(uri.Host, out var ip) || !IPAddress.IsLoopback(ip))
+        if (!Uri.TryCreate(address, UriKind.Absolute, out var uri) || !uri.IsLoopback)
             throw new InvalidOperationException("Sonar isn't running.");
         return _baseAddress = address.TrimEnd('/');
     }

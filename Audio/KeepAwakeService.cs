@@ -108,15 +108,14 @@ public sealed class KeepAwakeService : IDisposable
                 }
                 try
                 {
-                    var started = Player.Start(id, amplitude, OnStopped);
+                    // Don't add noise on top of audio that's already playing; the monitor resumes it later.
+                    bool othersPlaying;
+                    try { othersPlaying = OthersPlaying(id); } catch { othersPlaying = false; }
+                    var started = Player.Start(id, amplitude, OnStopped, initiallyPaused: othersPlaying);
                     if (started != null)
                     {
                         _players[id] = started;
                         StatusChanged?.Invoke(id, null);
-                        // Don't add noise on top of audio that's already playing; the monitor resumes it later.
-                        bool othersPlaying;
-                        try { othersPlaying = OthersPlaying(id); } catch { othersPlaying = false; }
-                        if (othersPlaying) started.Pause();
                         NoiseChanged?.Invoke(id, !othersPlaying);
                     }
                 }
@@ -183,7 +182,7 @@ public sealed class KeepAwakeService : IDisposable
         }
 
         /// <summary>Starts the noise stream, or returns null when the device isn't connected right now.</summary>
-        public static Player? Start(string deviceId, float amplitude, Action onStopped)
+        public static Player? Start(string deviceId, float amplitude, Action onStopped, bool initiallyPaused = false)
         {
             using var enumerator = new MMDeviceEnumerator();
             var device = enumerator.GetDevice(deviceId);
@@ -206,7 +205,8 @@ public sealed class KeepAwakeService : IDisposable
                     if (!player._disposing) onStopped();
                 };
                 output.Init(noise);
-                output.Play();
+                if (!initiallyPaused) output.Play();
+                else player.Pause();
                 return player;
             }
             catch

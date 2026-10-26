@@ -338,11 +338,11 @@ public partial class MainWindow : Window
         SetDefault(device, $"{device.Name} is now the default playback device.", Role.Console, Role.Multimedia);
     }
 
-    private void SetDefault(DeviceItem device, string message, params Role[] roles)
+    private async void SetDefault(DeviceItem device, string message, params Role[] roles)
     {
         try
         {
-            PolicyConfig.SetDefault(device.Id, roles);
+            await Task.Run(() => PolicyConfig.SetDefault(device.Id, roles));
             Report(message);
             _mixer.Refresh();
         }

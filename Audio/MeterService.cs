@@ -137,19 +137,26 @@ public sealed class MeterService : IDisposable
             using var enumerator = new MMDeviceEnumerator();
             foreach (var device in enumerator.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active))
             {
-                _devices.Add(device);
-                // Per-app meters see each stream in the device's own speaker layout, after any per-stream effect.
-                // An effect like the Dolby upmixer spreads stereo over all speakers, so skip those devices.
-                int speakers = device.AudioMeterInformation.PeakValues.Count;
-                bool readLayouts = speakers > 2 && !AudioEffects.MayUpmix(device.ID);
-                var sessions = device.AudioSessionManager.Sessions;
-                for (int i = 0; i < sessions.Count; i++)
+                try
                 {
-                    var session = sessions[i];
-                    uint pid = session.GetProcessID;
-                    if (!map.TryGetValue(pid, out var channel)) continue;
-                    _meters.Add((channel, session.AudioMeterInformation));
-                    if (readLayouts) _surround.Add((channel, pid, speakers, session.AudioMeterInformation));
+                    _devices.Add(device);
+                    // Per-app meters see each stream in the device's own speaker layout, after any per-stream effect.
+                    // An effect like the Dolby upmixer spreads stereo over all speakers, so skip those devices.
+                    int speakers = device.AudioMeterInformation.PeakValues.Count;
+                    bool readLayouts = speakers > 2 && !AudioEffects.MayUpmix(device.ID);
+                    var sessions = device.AudioSessionManager.Sessions;
+                    for (int i = 0; i < sessions.Count; i++)
+                    {
+                        var session = sessions[i];
+                        uint pid = session.GetProcessID;
+                        if (!map.TryGetValue(pid, out var channel)) continue;
+                        _meters.Add((channel, session.AudioMeterInformation));
+                        if (readLayouts) _surround.Add((channel, pid, speakers, session.AudioMeterInformation));
+                    }
+                }
+                catch
+                {
+                    // An endpoint throwing (COMException etc.) must not abort the whole rebuild.
                 }
             }
 
