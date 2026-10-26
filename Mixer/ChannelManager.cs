@@ -50,6 +50,9 @@ public sealed class MixerConfig
 
     /// <summary>Look for a newer release on GitHub shortly after AudioDesk starts.</summary>
     public bool CheckForUpdates { get; set; } = true;
+
+    /// <summary>Run the local API, the named pipe Knob Hub's AudioDesk app controls AudioDesk through.</summary>
+    public bool LocalApiEnabled { get; set; } = true;
 }
 
 public sealed record MixerApp(
@@ -360,6 +363,21 @@ public sealed class ChannelManager : IDisposable
         {
             _config.CheckForUpdates = value;
             Save();
+        }
+    }
+
+    /// <summary>Raised when the local API is turned on or off.</summary>
+    public event Action? LocalApiChanged;
+
+    public bool LocalApiEnabled
+    {
+        get => _config.LocalApiEnabled;
+        set
+        {
+            if (value == _config.LocalApiEnabled) return;
+            _config.LocalApiEnabled = value;
+            Save();
+            LocalApiChanged?.Invoke();
         }
     }
 

@@ -517,6 +517,27 @@
                                           Checked="StartWithWindows_Changed" Unchecked="StartWithWindows_Changed" />
                             </Grid>
                         </Border>
+                        <Border Padding="16,12" Margin="0,8,0,0" CornerRadius="8" BorderThickness="1"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="&#xE703;" FontFamily="{StaticResource IconFont}" FontSize="20"
+                                           VerticalAlignment="Center" Margin="0,0,16,0" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Knob support" FontSize="15" FontWeight="SemiBold" />
+                                    <TextBlock Text="Let Knob Hub's AudioDesk app show and change your channels from the knob, through AudioDesk's local API. Only apps running on this PC can connect."
+                                               TextWrapping="Wrap" Margin="0,2,0,0" Style="{StaticResource SecondaryText}" />
+                                </StackPanel>
+                                <CheckBox x:Name="KnobSupportBox" Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center"
+                                          AutomationProperties.Name="Knob support"
+                                          Checked="KnobSupport_Changed" Unchecked="KnobSupport_Changed" />
+                            </Grid>
+                        </Border>
 
                         <TextBlock Text="About" FontSize="16" FontWeight="SemiBold" Margin="0,20,0,8" />
                         <Border Padding="16,12" CornerRadius="8" BorderThickness="1"

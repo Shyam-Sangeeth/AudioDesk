@@ -125,12 +125,28 @@ public partial class App : Application
         ApplyKeepAwake();
 
         _mixer.Start();
-        // For Knob Hub's AudioDesk app (and anything else on this PC that wants the channels).
-        _api = new LocalApi(_mixer, Dispatcher);
-        _api.Start();
+        _mixer.LocalApiChanged += ApplyLocalApi;
+        ApplyLocalApi();
         CheckForUpdatesLater();
         if (!e.Args.Contains("--minimized"))
             ShowWindow();
+    }
+
+    /// <summary>Runs the local API while Knob support is on in Settings, for Knob Hub's AudioDesk app (and anything
+    /// else on this PC that wants the channels). Turning it off disconnects the knob.</summary>
+    private void ApplyLocalApi()
+    {
+        if (_mixer == null) return;
+        if (_mixer.LocalApiEnabled && _api == null)
+        {
+            _api = new LocalApi(_mixer, Dispatcher);
+            _api.Start();
+        }
+        else if (!_mixer.LocalApiEnabled && _api != null)
+        {
+            _api.Dispose();
+            _api = null;
+        }
     }
 
     private string _keepAwakeApplied = "";

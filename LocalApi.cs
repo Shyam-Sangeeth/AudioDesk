@@ -54,15 +54,16 @@ internal sealed class LocalApi : IDisposable
     {
         while (!stop.IsCancellationRequested)
         {
-            NamedPipeServerStream pipe;
+            NamedPipeServerStream? pipe = null;
             try
             {
                 pipe = new NamedPipeServerStream(PipeName, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances,
                                                  PipeTransmissionMode.Byte, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                 await pipe.WaitForConnectionAsync(stop);
             }
-            catch (OperationCanceledException) { return; }
-            catch (IOException) { await Task.Delay(1000, CancellationToken.None); continue; }
+            // Stopped (turned off in Settings): close the waiting pipe too, so nothing can connect to it.
+            catch (OperationCanceledException) { pipe?.Dispose(); return; }
+            catch (IOException) { pipe?.Dispose(); await Task.Delay(1000, CancellationToken.None); continue; }
             _ = ServeAsync(pipe, stop);
         }
     }

@@ -324,6 +324,8 @@ visible.
 - **Start with Windows:** starts AudioDesk in the tray when you sign in, so channels and keep awake
   work right away. (It adds AudioDesk to your Windows startup apps; you can also turn it off in
   *Settings → Apps → Startup*.)
+- **Knob support:** lets Knob Hub's AudioDesk app control AudioDesk from the knob, through the
+  [local API](#local-api). On by default; turning it off closes the API and disconnects the knob.
 - **About:** the installed version.
 - **Updates:** **Check for updates** looks for a newer [release on GitHub](https://github.com/Shyam-Sangeeth/AudioDesk/releases).
   If there is one, **Download and install** downloads its installer, verifies it (size and the SHA-256 checksum
@@ -366,7 +368,7 @@ Settings are saved to:
 
 It contains the channel devices (and the device each goes back to after Sonar), volumes and mute states, the Sonar
 preset linked to each device, which channel each app belongs to (by process name), profile devices, the
-kept-awake devices with their noise levels and whether to check for updates. It's plain JSON. To start over, quit
+kept-awake devices with their noise levels, whether to check for updates and whether knob support is on. It's plain JSON. To start over, quit
 AudioDesk and delete the file.
 
 Windows also remembers per-app device choices itself. To clear those: *Settings → System → Sound → Volume
@@ -385,7 +387,8 @@ mixer → Reset*.
 
 AudioDesk has a local API so other apps on the PC can show and change its channels; Knob Hub's AudioDesk app uses
 it to control AudioDesk from a hardware knob. It is a named pipe, `AudioDesk.Api`, that only the signed-in Windows
-user can open, with one JSON object per line each way.
+user can open, with one JSON object per line each way. It runs while **Knob support** is on in the
+[Settings tab](#settings-tab) (the default).
 
 - **State:** AudioDesk sends a `state` message when a client connects and whenever something changes: Sonar
   available/on, the active profile, and for each channel (game, media, aux) its volume (0-1), mute, whether it goes
@@ -408,6 +411,7 @@ The full message shapes are in the doc comment of `LocalApi.cs`.
 | The start of sounds is cut off on a receiver/soundbar | Turn on [Keep device awake](#keep-device-awake) for that device. |
 | A bitstream/passthrough player can't open the device | Turn off Keep device awake for that device while you use the player. |
 | Tray icon missing | It's in the hidden-icons area (**^**). Drag it onto the taskbar. |
+| The knob says AudioDesk isn't running, but it is | Turn on **Knob support** in the Settings tab. |
 
 ## Limitations
 

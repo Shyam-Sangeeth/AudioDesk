@@ -236,11 +236,23 @@ public partial class MainWindow : Window
     private void LoadSettings()
     {
         _loadingSettings = true;
-        try { StartWithWindowsBox.IsChecked = StartupSetting.Enabled; }
+        try
+        {
+            StartWithWindowsBox.IsChecked = StartupSetting.Enabled;
+            KnobSupportBox.IsChecked = _mixer.LocalApiEnabled;
+        }
         finally { _loadingSettings = false; }
 
         var version = typeof(MainWindow).Assembly.GetName().Version;
         VersionText.Text = version == null ? "AudioDesk" : $"AudioDesk {version.Major}.{version.Minor}.{version.Build}";
+    }
+
+    private void KnobSupport_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_loadingSettings) return;
+        bool on = KnobSupportBox.IsChecked == true;
+        _mixer.LocalApiEnabled = on;
+        Report(on ? "Knob support is on: Knob Hub's AudioDesk app can connect." : "Knob support is off: the knob can't control AudioDesk.");
     }
 
     private void StartWithWindows_Changed(object sender, RoutedEventArgs e)
