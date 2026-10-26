@@ -4,8 +4,14 @@
         xmlns:local="clr-namespace:AudioDesk"
         Title="AudioDesk"
         Icon="Assets/AudioDesk.ico"
-        Width="1000" Height="720" MinWidth="820" MinHeight="520"
-        WindowStartupLocation="CenterScreen">
+        Width="1000" Height="720" ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen" Background="{DynamicResource SolidBackgroundFillColorBaseBrush}">
+
+    <!-- AudioDesk draws its own title bar (below), like Knob Hub's; Windows still moves the window. Fixed size: no
+         resizing or maximizing. -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40" ResizeBorderThickness="0" GlassFrameThickness="0,0,0,1" UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
@@ -18,6 +24,47 @@
 
         <Style x:Key="SecondaryText" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <!-- The title bar's minimise / close buttons, like Windows' own. -->
+        <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="40" />
+            <Setter Property="FontFamily" Value="{StaticResource IconFont}" />
+            <Setter Property="FontSize" Value="10" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CloseCaptionButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#C42B1C" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="#B3271C" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="Badge" TargetType="Border">
@@ -361,21 +408,34 @@
         </DataTemplate>
     </Window.Resources>
 
-    <Grid Margin="24,16,24,12">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- The title bar: logo and name on the left, the window's buttons on the right; drag it to move the window. -->
+        <DockPanel Background="{DynamicResource LayerFillColorDefaultBrush}">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" ToolTip="Minimize" Click="Minimize_Click"
+                        AutomationProperties.Name="Minimize" />
+                <Button Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" ToolTip="Close" Click="Close_Click"
+                        AutomationProperties.Name="Close" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="16,0,0,0" VerticalAlignment="Center">
+                <Image Source="Assets/logo-64.png" Width="20" Height="20" VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality" />
+                <TextBlock Text="AudioDesk" FontSize="13" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+        </DockPanel>
+
+    <Grid Grid.Row="1" Margin="24,12,24,12">
+        <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Horizontal">
-            <Image Source="Assets/logo-64.png" Width="34" Height="34" VerticalAlignment="Center" Margin="0,0,12,0"
-                   RenderOptions.BitmapScalingMode="HighQuality" />
-            <TextBlock Text="AudioDesk" FontSize="26" FontWeight="SemiBold" VerticalAlignment="Center" />
-        </StackPanel>
-
-        <TabControl Grid.Row="2" Margin="0,12,0,0">
+        <TabControl>
             <TabItem Header="Mixer">
                 <DockPanel Margin="0,12,0,0">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
@@ -586,6 +646,7 @@
             </TabItem>
         </TabControl>
 
-        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,10,0,0" Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
+        <TextBlock x:Name="StatusText" Grid.Row="1" Margin="0,10,0,0" Style="{StaticResource SecondaryText}" TextTrimming="CharacterEllipsis" />
+    </Grid>
     </Grid>
 </Window>

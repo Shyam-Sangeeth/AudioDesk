@@ -58,6 +58,12 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => UpdateMetersEnabled();
     }
 
+    // --- The title bar ---
+
+    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
     private readonly MeterService _meters;
     private IReadOnlyDictionary<Channel, float>? _pendingLevels;
 
