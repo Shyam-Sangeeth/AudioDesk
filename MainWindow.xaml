@@ -323,10 +323,6 @@
                                     Visibility="{Binding IsDefault, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="Default" FontSize="11" Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
                             </Border>
-                            <Border Style="{StaticResource Badge}" BorderThickness="1" BorderBrush="{DynamicResource AccentFillColorDefaultBrush}"
-                                    Visibility="{Binding IsCommunications, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Calls" FontSize="11" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
-                            </Border>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                             <TextBlock Text="{Binding Format}" Style="{StaticResource SecondaryText}" />

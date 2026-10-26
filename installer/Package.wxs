@@ -110,7 +110,7 @@
         <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="40" Transparent="yes" NoPrefix="yes"
                  Text="{\WixUI_Font_Bigger}Welcome to AudioDesk Setup" />
         <Control Id="Description" Type="Text" X="135" Y="70" Width="220" Height="70" Transparent="yes" NoPrefix="yes"
-                 Text="AudioDesk gives every app its own channel (Game, Chat, Media, Aux, Mic) and plays it straight on a real device at full quality.&#13;&#10;&#13;&#10;Click Install to install AudioDesk [ProductVersion] for your account." />
+                 Text="AudioDesk is a helper for SteelSeries Sonar: each channel (Game, Media, Aux) goes through Sonar or plays straight on a real device at full quality.&#13;&#10;&#13;&#10;Click Install to install AudioDesk [ProductVersion] for your account." />
         <Control Id="StartWithWindows" Type="CheckBox" X="135" Y="160" Width="220" Height="17"
                  Property="STARTWITHWINDOWS" CheckBoxValue="1" Text="Start AudioDesk when Windows starts" />
         <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />

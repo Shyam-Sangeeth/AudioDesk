@@ -235,16 +235,13 @@ public partial class App : Application
         try
         {
             using var audio = new AudioService();
-            foreach (var flow in new[] { DataFlow.Render, DataFlow.Capture })
-            {
-                log.AppendLine($"== {flow} devices ==");
-                foreach (var d in audio.GetDevices(flow))
-                    log.AppendLine($"  {d.Name} | {d.Format}{(d.IsDefault ? " | DEFAULT" : "")}{(d.IsCommunications ? " | COMMS" : "")}{(d.IsVirtual ? " | virtual" : "")}");
-            }
+            log.AppendLine("== Playback devices ==");
+            foreach (var d in audio.GetDevices(DataFlow.Render))
+                log.AppendLine($"  {d.Name} | {d.Format}{(d.IsDefault ? " | DEFAULT" : "")}{(d.IsVirtual ? " | virtual" : "")}");
 
             log.AppendLine("== Apps with audio ==");
             foreach (var a in audio.GetApps())
-                log.AppendLine($"  {a.Name} ({a.ProcessName}) | pids {string.Join(",", a.ProcessIds)} | out={a.HasOutput} in={a.HasInput} playing={a.IsPlaying} | routed to {AppRouting.Get(a.ProcessIds[0], DataFlow.Render) ?? "default"}");
+                log.AppendLine($"  {a.Name} ({a.ProcessName}) | pids {string.Join(",", a.ProcessIds)} | playing={a.IsPlaying} | routed to {AppRouting.Get(a.ProcessIds[0], DataFlow.Render) ?? "default"}");
 
             log.AppendLine($"== Per-app routing supported: {AppRouting.IsSupported} ==");
             var target = audio.GetDevices(DataFlow.Render).FirstOrDefault(d => !d.IsDefault) ?? audio.GetDevices(DataFlow.Render).FirstOrDefault();

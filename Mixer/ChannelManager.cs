@@ -170,7 +170,7 @@ public sealed class ChannelManager : IDisposable
     /// </summary>
     public string? DeviceId(Channel channel) => channel switch
     {
-        Channel.Game => _audio.DefaultId(DataFlow.Render, Role.Multimedia),
+        Channel.Game => _audio.DefaultOutputId(),
         _ => EffectiveDeviceId(channel),
     };
 
@@ -389,8 +389,6 @@ public sealed class ChannelManager : IDisposable
 
     /// <summary>Raised when the set of kept-awake devices or their levels change.</summary>
     public event Action? KeepAwakeChanged;
-
-    public IReadOnlyDictionary<string, double> KeepAwakeDevices => _config.KeepAwake;
 
     public bool IsKeepAwake(string deviceId) => _config.KeepAwake.ContainsKey(deviceId);
 
@@ -725,9 +723,6 @@ public sealed class ChannelManager : IDisposable
         return ProfileDeviceId(Profile.Headset) ?? ProfileChoices().FirstOrDefault()?.Id;
     }
 
-    public Channel ChannelOf(string appKey) =>
-        _config.Apps.TryGetValue(appKey, out var channel) ? channel : Channel.Game;
-
     // Apps that have played sound since AudioDesk started.
     private readonly HashSet<string> _hasPlayed = new(StringComparer.OrdinalIgnoreCase);
 
@@ -950,8 +945,8 @@ public sealed class ChannelManager : IDisposable
 
         foreach (var a in found)
         {
-            // Recording-only apps and voice apps are Sonar's.
-            if (!a.HasOutput || IsVoiceApp(a.ProcessName)) continue;
+            // Voice apps are Sonar's.
+            if (IsVoiceApp(a.ProcessName)) continue;
             var channel = appChannels.TryGetValue(a.ProcessName, out var c) ? c : Channel.Game;
             var app = new MixerApp(a.ProcessName, a.Name, a.ExePath, a.ProcessIds, a.IsPlaying, channel);
             apps.Add(app);

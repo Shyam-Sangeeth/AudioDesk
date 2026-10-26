@@ -174,10 +174,4 @@ internal static class AppRouting
             WindowsDeleteString(hstring);
         }
     }
-
-    public static void ClearAll()
-    {
-        var factory = Factory.Value ?? throw new NotSupportedException("Per-app routing isn't available on this Windows build.");
-        Marshal.ThrowExceptionForHR(factory.ClearAllPersistedApplicationDefaultEndpoints());
-    }
 }

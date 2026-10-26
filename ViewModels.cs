@@ -47,7 +47,6 @@ public sealed class DeviceItem(DeviceInfo info, bool keepAwake = false, double k
     public string Name => info.Name;
     public string Format => info.Format;
     public bool IsDefault => info.IsDefault;
-    public bool IsCommunications => info.IsCommunications;
     public bool IsVirtual => info.IsVirtual;
     public bool CanMakeDefault => !info.IsDefault;
     public DataFlow Flow => info.Flow;
@@ -251,13 +250,6 @@ public sealed class ProfilesViewModel(ChannelManager mixer, Action<string> repor
     // time, showing where Sonar plays.
     public bool ShowSonarActive => _sonarAvailable && _sonarMode;
     public bool ShowSonarInactive => _sonarAvailable && !_sonarMode;
-
-    public static string NameOf(Profile profile) => profile switch
-    {
-        Profile.Sonar => "Sonar",
-        Profile.Headset => "Headset",
-        _ => "Home Theater",
-    };
 
     public string SonarTip => _sonarMode
         ? "Everything goes through SteelSeries Sonar. Click to play Game, Media and Aux straight on their devices again."

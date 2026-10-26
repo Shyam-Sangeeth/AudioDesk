@@ -12,18 +12,15 @@ public sealed record DeviceInfo(
     DataFlow Flow,
     string Format,
     bool IsDefault,
-    bool IsCommunications,
     bool IsVirtual);
 
-/// <summary>An app (all processes of one executable) that has audio sessions.</summary>
+/// <summary>An app (all processes of one executable) that has playback sessions.</summary>
 public sealed record AudioApp(
     string ProcessName,
     string Name,
     string? ExePath,
     IReadOnlyList<uint> ProcessIds,
     bool IsPlaying,
-    bool HasOutput,
-    bool HasInput,
     IReadOnlySet<string> OutputDeviceIds); // devices the app is actively playing on right now
 
 /// <summary>Reads devices and app audio sessions, and reports device changes.</summary>
@@ -111,12 +108,10 @@ public sealed class AudioService : IDisposable
             {
                 lock (_cacheLock) _cacheDirty = false;
                 var render = ReadDevices(DataFlow.Render);
-                var capture = ReadDevices(DataFlow.Capture);
                 lock (_cacheLock)
                 {
-                    changed = !Same(DataFlow.Render, render) || !Same(DataFlow.Capture, capture);
+                    changed = !Same(DataFlow.Render, render);
                     _cache[DataFlow.Render] = render;
-                    _cache[DataFlow.Capture] = capture;
                 }
             }
             catch
@@ -135,16 +130,15 @@ public sealed class AudioService : IDisposable
         });
     }
 
-    /// <summary>Reads both device lists on a worker thread and updates the cache; completes when the cache is current.</summary>
+    /// <summary>Reads the playback devices on a worker thread and updates the cache; completes when the cache is current.</summary>
     public async Task RefreshDevicesAsync()
     {
-        var (render, capture) = await Task.Run(() => (ReadDevices(DataFlow.Render), ReadDevices(DataFlow.Capture)));
+        var render = await Task.Run(() => ReadDevices(DataFlow.Render));
         bool changed;
         lock (_cacheLock)
         {
-            changed = !Same(DataFlow.Render, render) || !Same(DataFlow.Capture, capture);
+            changed = !Same(DataFlow.Render, render);
             _cache[DataFlow.Render] = render;
-            _cache[DataFlow.Capture] = capture;
         }
         if (changed) DevicesChanged?.Invoke();
     }
@@ -156,7 +150,6 @@ public sealed class AudioService : IDisposable
     {
         using var enumerator = new MMDeviceEnumerator();
         string? defaultId = ReadDefaultId(enumerator, flow, Role.Multimedia);
-        string? commsId = ReadDefaultId(enumerator, flow, Role.Communications);
         var devices = new List<DeviceInfo>();
 
         foreach (var device in enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active))
@@ -171,7 +164,6 @@ public sealed class AudioService : IDisposable
                     flow,
                     DescribeFormat(device),
                     device.ID == defaultId,
-                    device.ID == commsId,
                     VirtualMarkers.Any(m => name.Contains(m, StringComparison.OrdinalIgnoreCase))));
             }
         }
@@ -192,43 +184,30 @@ public sealed class AudioService : IDisposable
         }
     }
 
-    /// <summary>The default device for a role, from the cache.</summary>
-    public string? DefaultId(DataFlow flow, Role role)
-    {
-        var devices = GetDevices(flow);
-        return (role == Role.Communications
-            ? devices.FirstOrDefault(d => d.IsCommunications)
-            : devices.FirstOrDefault(d => d.IsDefault))?.Id;
-    }
+    /// <summary>The Windows default playback device, from the cache.</summary>
+    public string? DefaultOutputId() => GetDevices(DataFlow.Render).FirstOrDefault(d => d.IsDefault)?.Id;
 
-    /// <summary>Apps with an audio session on any active device, grouped by executable.</summary>
+    /// <summary>Apps with a playback session on any active device, grouped by executable.</summary>
     public List<AudioApp> GetApps()
     {
-        var sessions = new Dictionary<uint, (bool Output, bool Input, bool Playing)>();
+        var sessions = new Dictionary<uint, bool>();  // pid → playing
         var outputDevices = new Dictionary<uint, HashSet<string>>();
 
         ForEachSession(DataFlow.Render, (deviceId, pid, session) =>
         {
             bool active = session.State == AudioSessionState.AudioSessionStateActive;
-            var s = sessions.GetValueOrDefault(pid);
-            sessions[pid] = (true, s.Input, s.Playing || active);
+            sessions[pid] = sessions.GetValueOrDefault(pid) || active;
             // Only devices the app is playing on right now: Windows keeps an app's old, idle sessions on devices
             // it used before (e.g. before it was moved to another channel), which must not count.
             if (!active) return;
             if (!outputDevices.TryGetValue(pid, out var set)) outputDevices[pid] = set = new(StringComparer.OrdinalIgnoreCase);
             set.Add(deviceId);
         });
-        ForEachSession(DataFlow.Capture, (_, pid, _) =>
-        {
-            var s = sessions.GetValueOrDefault(pid);
-            sessions[pid] = (s.Output, true, s.Playing);
-        });
-
         // Apps like browsers and Discord use several processes; show them as one app.
-        var groups = new Dictionary<string, (string ProcessName, string? Path, List<uint> Pids, bool Output, bool Input, bool Playing, HashSet<string> Devices)>(StringComparer.OrdinalIgnoreCase);
+        var groups = new Dictionary<string, (string ProcessName, string? Path, List<uint> Pids, bool Playing, HashSet<string> Devices)>(StringComparer.OrdinalIgnoreCase);
         uint self = (uint)Environment.ProcessId;
 
-        foreach (var (pid, flags) in sessions)
+        foreach (var (pid, playing) in sessions)
         {
             if (pid == self) continue;
             string processName;
@@ -248,17 +227,17 @@ public sealed class AudioService : IDisposable
             {
                 g.Pids.Add(pid);
                 if (devices != null) g.Devices.UnionWith(devices);
-                groups[processName] = g with { Output = g.Output || flags.Output, Input = g.Input || flags.Input, Playing = g.Playing || flags.Playing };
+                groups[processName] = g with { Playing = g.Playing || playing };
             }
             else
             {
-                groups[processName] = (processName, GetProcessPath(pid), [pid], flags.Output, flags.Input, flags.Playing,
+                groups[processName] = (processName, GetProcessPath(pid), [pid], playing,
                                        devices != null ? new HashSet<string>(devices, StringComparer.OrdinalIgnoreCase) : new HashSet<string>(StringComparer.OrdinalIgnoreCase));
             }
         }
 
         return groups.Values
-            .Select(g => new AudioApp(g.ProcessName, DisplayName(g.Path, g.ProcessName), g.Path, g.Pids, g.Playing, g.Output, g.Input, g.Devices))
+            .Select(g => new AudioApp(g.ProcessName, DisplayName(g.Path, g.ProcessName), g.Path, g.Pids, g.Playing, g.Devices))
             .OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
     }
@@ -275,28 +254,6 @@ public sealed class AudioService : IDisposable
             session.SimpleAudioVolume.Volume = Math.Clamp(target.Volume, 0f, 1f);
             session.SimpleAudioVolume.Mute = target.Muted;
         });
-    }
-
-    public (float Volume, bool Muted) GetDeviceLevel(string deviceId)
-    {
-        try
-        {
-            using var device = _enumerator.GetDevice(deviceId);
-            var volume = device.AudioEndpointVolume;
-            return (volume.MasterVolumeLevelScalar, volume.Mute);
-        }
-        catch
-        {
-            return (0f, false);
-        }
-    }
-
-    public void SetDeviceLevel(string deviceId, float volume, bool muted)
-    {
-        using var device = _enumerator.GetDevice(deviceId);
-        var endpoint = device.AudioEndpointVolume;
-        endpoint.MasterVolumeLevelScalar = Math.Clamp(volume, 0f, 1f);
-        endpoint.Mute = muted;
     }
 
     /// <summary>Visits every audio session on the active devices. Safe on any thread (uses its own enumerator).</summary>
