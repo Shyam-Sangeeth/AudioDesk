@@ -5,8 +5,9 @@
 <h1 align="center">AudioDesk</h1>
 
 <p align="center">
-  Sonar-style audio channels for Windows, without virtual audio devices.<br />
-  Every app plays directly on a real device at that device's full sample rate, bit depth and channel count.
+  A helper for SteelSeries Sonar on Windows.<br />
+  Choose per channel what goes through Sonar and what bypasses it to play lossless on your real device, at that
+  device's full sample rate, bit depth and channel count, with more control over Sonar from one window.
 </p>
 
 ---
@@ -43,32 +44,42 @@
 
 ## Why AudioDesk
 
-Mixers like SteelSeries Sonar give you separate channels by installing **virtual audio
-devices**. Apps play into the virtual device, the mixer processes the sound, and then copies it to your real
-headset or speakers. That design has a cost:
+SteelSeries Sonar gives you separate channels by installing **virtual audio devices**. Apps play into Sonar's
+virtual device, Sonar processes the sound, and then copies it to your real headset or speakers. That's what makes
+its EQ and effects possible, but it has a cost for everything that goes through it, even audio you don't want to
+process:
 
-| | Virtual-device mixers (e.g. Sonar) | AudioDesk |
+| | Through Sonar | Bypassing Sonar (AudioDesk) |
 |---|---|---|
-| Path | App → virtual device → mixer → real device | App → real device |
-| Sample rate / bit depth | Fixed by the virtual device (often 48 kHz) | Whatever the real device runs at (e.g. 96 kHz / 24-bit) |
-| Surround | Usually mixed down to stereo | 5.1 / 7.1 passes straight through |
+| Path | App → Sonar's virtual device → Sonar → real device | App → real device |
+| Sample rate / bit depth | Set by Sonar, not your DAC | Whatever the real device runs at (e.g. 96 kHz / 24-bit) |
+| Surround | Sonar's format | 5.1 / 7.1 passes straight through, e.g. Dolby Digital to a receiver |
 | Extra delay | Yes (copying between devices) | None |
-| EQ / virtual surround | Yes | No (that needs a virtual device) |
+| EQ / effects / virtual surround | Yes | No (play it through Sonar for those) |
 
-AudioDesk does the routing with Windows' own per-app routing, the same mechanism behind
-*Settings → System → Sound → Volume mixer → App output device*. It gives that mechanism a channel-based
-interface and profiles.
+AudioDesk lets you have both. Each channel either goes through Sonar for its EQ and effects or bypasses it and
+plays lossless on your real device, and you can switch per channel or all at once. Sonar keeps running for what it
+does best (voice chat, the microphone, EQ), while AudioDesk handles the app routing and gives you more control over
+Sonar: its device, presets and volume per channel, presets that follow the device, and profiles, from one window
+and the tray.
+
+The routing uses Windows' own per-app routing, the same mechanism behind
+*Settings → System → Sound → Volume mixer → App output device*, so AudioDesk installs no drivers or virtual devices
+of its own.
 
 ## Features
 
+- **Through Sonar or bypass it:** one switch per channel to send it through SteelSeries Sonar for its EQ and
+  effects, or straight to your real device at full quality.
+- **More control over Sonar:** pick the device Sonar plays each channel on, pick Sonar presets (with a searchable
+  list for Game), link a preset to each device, and use Sonar's own volume and mute, all kept in step with
+  SteelSeries GG.
 - **Three channels: Game, Media and Aux**, each with its own device, volume and mute.
 - **Drag-and-drop routing:** drag an app from one channel to another, or right-click it and choose *Move to…*.
 - **Full quality:** each channel shows the real format of its device, e.g. *5.1 · 48 kHz · Dolby Digital* or
   *Stereo · 96 kHz · 24-bit*.
-- **Profiles:** in one click, send Game, Media and Aux all through **Sonar**, or straight to your **Headset** or
+- **Profiles:** in one click, send Game, Media and Aux all through **Sonar**, or to your **Headset** or
   **Home Theater**.
-- **Through Sonar:** one switch per channel to send it through SteelSeries Sonar for its EQ and effects, while
-  the other channels stay direct at full quality.
 - **Keep device awake:** plays inaudible noise to a receiver or soundbar so it never sleeps and doesn't cut off
   the start of sounds after a pause.
 - **Tray icon:** pick devices and profiles from the tray; AudioDesk keeps working with the window closed.
@@ -81,6 +92,8 @@ interface and profiles.
 
 - **Windows 11**, or Windows 10 version 21H2 or later (per-app routing needs 21H2+).
 - Nothing else when you use the installer (it includes .NET). To build from source: the **.NET 10 SDK**.
+- **SteelSeries Sonar** (in SteelSeries GG, **Classic** mode) for the Sonar features. Without it, AudioDesk still
+  routes every channel straight to your devices.
 
 AudioDesk doesn't need administrator rights and doesn't install drivers.
 
@@ -395,8 +408,10 @@ The full message shapes are in the doc comment of `LocalApi.cs`.
 
 ## Limitations
 
-- **No EQ, virtual surround or effects.** Those need the audio to pass through a processor (a virtual device),
-  which is exactly what AudioDesk avoids.
+- **No EQ, virtual surround or effects of its own.** Those need the audio to pass through a processor (a virtual
+  device): send the channel [through Sonar](#through-sonar-steelseries-sonar) for them.
+- **Sonar control isn't official.** AudioDesk talks to Sonar through the local connection SteelSeries GG's own
+  Sonar page uses; a GG update could change it.
 - **Undocumented Windows APIs.** Per-app routing and default-device switching use interfaces that Windows itself
   uses but doesn't document. They've been stable for years, but a future Windows update could change them.
 - **Some apps ignore per-app routing,** namely those that choose a specific output device themselves.
