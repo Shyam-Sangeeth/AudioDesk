@@ -15,6 +15,8 @@ powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1   # MSI i
 ```
 
 There are no unit tests: check changes with `--selftest`, a build, and by driving the real window (UI Automation).
+`tools/` has the README screenshot script, an installer walk-through and a read-only local API reader (see its
+README).
 A running AudioDesk locks its files: `AudioDesk.exe --exit` closes it (and waits), `--minimized` starts it in the tray.
 
 ## Layout
