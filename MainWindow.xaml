@@ -686,7 +686,9 @@
                                        RenderOptions.BitmapScalingMode="HighQuality" />
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock x:Name="VersionText" Text="AudioDesk" FontSize="15" FontWeight="SemiBold" />
-                                    <TextBlock Text="github.com/Shyam-Sangeeth/AudioDesk" Margin="0,2,0,0" Style="{StaticResource SecondaryText}" />
+                                    <TextBlock Margin="0,2,0,0">
+                                        <Hyperlink NavigateUri="https://github.com/Shyam-Sangeeth/AudioDesk" RequestNavigate="Link_RequestNavigate">github.com/Shyam-Sangeeth/AudioDesk</Hyperlink>
+                                    </TextBlock>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -707,7 +709,7 @@
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding Updates.Status}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" />
                                         <TextBlock Margin="0,2,0,0" Visibility="{Binding Updates.IsUpdateAvailable, Converter={StaticResource BoolToVisibility}}">
-                                            <Hyperlink NavigateUri="{Binding Updates.ReleaseUrl}" RequestNavigate="ReleaseLink_RequestNavigate">What's new in this version</Hyperlink>
+                                            <Hyperlink NavigateUri="{Binding Updates.ReleaseUrl}" RequestNavigate="Link_RequestNavigate">What's new in this version</Hyperlink>
                                         </TextBlock>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">

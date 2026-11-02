@@ -274,10 +274,11 @@ public partial class MainWindow : Window
 
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e) => await Updates.InstallAsync();
 
-    private void ReleaseLink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    /// <summary>Opens a link (the GitHub page, a release's notes) in the default browser.</summary>
+    private void Link_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {
         try { Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
-        catch (Exception ex) { Report($"Couldn't open the release page: {ex.Message}"); }
+        catch (Exception ex) { Report($"Couldn't open {e.Uri.AbsoluteUri}: {ex.Message}"); }
         e.Handled = true;
     }
 
