@@ -1,6 +1,6 @@
 # Screenshots of AudioDesk's window for the README (docs/screenshots): the visible frame only, copied from the screen
-# so popups and menus are included. Actions run first: -Gear "<Channel> settings" / "Profile settings",
-# -Tab Mixer|Devices|Settings, -RightClick "<app name>". -Show starts the Release build first.
+# so popups and menus are included. Actions run first: -Gear "<Channel> settings" / "Profile devices",
+# -Tab Mixer|Devices|Shortcuts|Settings, -RightClick "<app name>". -Show starts the Release build first.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\readme-shots.ps1 -Out docs\screenshots\mixer.png -Tab Mixer
 #

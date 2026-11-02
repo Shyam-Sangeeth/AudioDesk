@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
@@ -25,6 +26,7 @@ public partial class App : Application
     private MeterService? _meters;
     private UpdateViewModel? _updates;
     private LocalApi? _api;
+    private ShortcutService? _shortcuts;
     private bool _exiting;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -60,6 +62,9 @@ public partial class App : Application
         _instanceMutex = new Mutex(true, InstanceName, out bool isFirst);
         if (!isFirst)
         {
+            // This copy was just started by you, so Windows lets it bring windows to the front; pass that on to the
+            // running copy, or its window opens behind the others.
+            AllowSetForegroundWindow(AnyProcess);
             try { EventWaitHandle.OpenExisting(ShowEventName).Set(); } catch { }
             // The other copy may be on its way out (e.g. it just started an update that launched us), so give
             // it a moment to let go before deciding it's really still running.
@@ -106,7 +111,8 @@ public partial class App : Application
 
         _meters = new MeterService();
         _updates = new UpdateViewModel(_mixer, ExitApp);
-        _window = new MainWindow(_audio, _mixer, _meters, _updates);
+        _shortcuts = new ShortcutService(_mixer, ShowShortcutResult);
+        _window = new MainWindow(_audio, _mixer, _meters, _updates, _shortcuts);
         _window.Closing += (_, args) =>
         {
             // Closing the window keeps AudioDesk running (and routing apps) in the tray.
@@ -149,6 +155,14 @@ public partial class App : Application
         }
     }
 
+    /// <summary>What a shortcut did: in the status line while the window is on screen, otherwise as a notification
+    /// (if those are on in the Shortcuts tab; problems are always shown).</summary>
+    private void ShowShortcutResult(string title, string text, bool isError)
+    {
+        if (_window is { IsOnScreen: true }) _window.Report(isError ? $"{title}: {text}" : text);
+        else if (isError || _mixer?.ShortcutNotifications == true) _tray?.ShowHint(title, text);
+    }
+
     private string _keepAwakeApplied = "";
 
     /// <summary>Plays keep-awake noise on the kept-awake devices that a channel uses; only touches the
@@ -168,9 +182,20 @@ public partial class App : Application
         if (_window == null) return;
         _window.Show();
         if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
-        _window.Activate();
+        // Windows refuses to activate a window when another app has the foreground (AudioDesk started by another
+        // program, or by sign-in while you work); on top for a moment, it at least opens in front of the others.
+        if (!_window.Activate())
+        {
+            _window.Topmost = true;
+            _window.Topmost = false;
+        }
         _mixer?.Refresh();
     }
+
+    private const int AnyProcess = -1; // ASFW_ANY
+
+    [DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(int processId);
 
     /// <summary>
     /// If enabled, checks GitHub for a newer release once, a little after startup (so it doesn't slow down
@@ -218,6 +243,7 @@ public partial class App : Application
         if (_exiting) return;
         _exiting = true;
         _api?.Dispose();
+        _shortcuts?.Dispose();
         _keepAwake?.Dispose();
         _meters?.Dispose();
         _mixer?.Dispose();

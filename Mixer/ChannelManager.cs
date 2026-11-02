@@ -32,6 +32,14 @@ public sealed class ChannelSettings
 
     /// <summary>Media/Aux through Sonar: the preset for devices without their own link (null = leave the preset alone).</summary>
     public string? SonarDefaultPresetId { get; set; }
+
+    /// <summary>The real device you chose for Sonar to play this channel on (here, in SteelSeries GG or with a profile).
+    /// Sonar leaves its device blank until it has played something since it started, and this stands in until then.</summary>
+    public string? SonarOutputId { get; set; }
+
+    /// <summary>The device Sonar plays this channel on while <see cref="SonarOutputId"/> is disconnected (the headset,
+    /// else the home theater); null while it's connected. Sonar goes back to your device when it's plugged in again.</summary>
+    public string? SonarStandInId { get; set; }
 }
 
 public sealed class MixerConfig
@@ -53,6 +61,15 @@ public sealed class MixerConfig
 
     /// <summary>Run the local API, the named pipe Knob Hub's AudioDesk app controls AudioDesk through.</summary>
     public bool LocalApiEnabled { get; set; } = true;
+
+    /// <summary>Keyboard shortcuts: action id (see <c>ShortcutAction.All</c>) → keys, such as "Ctrl+Alt+Up".</summary>
+    public Dictionary<string, string> Shortcuts { get; set; } = [];
+
+    /// <summary>How much a volume shortcut changes a channel's volume, in percent.</summary>
+    public int ShortcutVolumeStep { get; set; } = 5;
+
+    /// <summary>Show a notification when a shortcut switches a device, a profile or Sonar while the window is closed.</summary>
+    public bool ShortcutNotifications { get; set; } = true;
 }
 
 public sealed record MixerApp(
@@ -124,6 +141,8 @@ public sealed class ChannelManager : IDisposable
             settings.SonarPresetLinks = new Dictionary<string, string>(settings.SonarPresetLinks ?? [], StringComparer.OrdinalIgnoreCase);
         }
         _config.KeepAwake = new Dictionary<string, double>(_config.KeepAwake ?? [], StringComparer.OrdinalIgnoreCase);
+        _config.Shortcuts = new Dictionary<string, string>(_config.Shortcuts ?? []);
+        if (!VolumeSteps.Contains(_config.ShortcutVolumeStep)) _config.ShortcutVolumeStep = 5;
 
         // New apps and other tools re-routing apps are picked up on the next poll.
         _pollTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
@@ -381,6 +400,57 @@ public sealed class ChannelManager : IDisposable
         }
     }
 
+    // --- Keyboard shortcuts ---
+
+    /// <summary>The volume steps a shortcut can use, in percent.</summary>
+    public static readonly int[] VolumeSteps = [1, 2, 5, 10];
+
+    /// <summary>Raised when a shortcut or a shortcut option changes.</summary>
+    public event Action? ShortcutsChanged;
+
+    public IReadOnlyDictionary<string, string> Shortcuts => _config.Shortcuts;
+
+    /// <summary>Sets (or with null, clears) an action's shortcut. Keys belong to one action: returns the action they
+    /// were taken from, if another one had them.</summary>
+    public string? SetShortcut(string action, string? keys)
+    {
+        string? previous = null;
+        if (keys == null) _config.Shortcuts.Remove(action);
+        else
+        {
+            previous = _config.Shortcuts.FirstOrDefault(s => s.Key != action && s.Value == keys).Key;
+            if (previous != null) _config.Shortcuts.Remove(previous);
+            _config.Shortcuts[action] = keys;
+        }
+        Save();
+        ShortcutsChanged?.Invoke();
+        return previous;
+    }
+
+    public int ShortcutVolumeStep
+    {
+        get => _config.ShortcutVolumeStep;
+        set
+        {
+            if (!VolumeSteps.Contains(value) || value == _config.ShortcutVolumeStep) return;
+            _config.ShortcutVolumeStep = value;
+            Save();
+            ShortcutsChanged?.Invoke();
+        }
+    }
+
+    public bool ShortcutNotifications
+    {
+        get => _config.ShortcutNotifications;
+        set
+        {
+            if (value == _config.ShortcutNotifications) return;
+            _config.ShortcutNotifications = value;
+            Save();
+            ShortcutsChanged?.Invoke();
+        }
+    }
+
     // --- Keep awake (quiet noise so receivers don't fall asleep) ---
 
     public const double DefaultKeepAwakeDb = -80;
@@ -392,9 +462,11 @@ public sealed class ChannelManager : IDisposable
 
     public bool IsKeepAwake(string deviceId) => _config.KeepAwake.ContainsKey(deviceId);
 
-    /// <summary>Real devices the output channels play on right now.</summary>
+    /// <summary>Real devices the output channels play on right now. A channel that goes through Sonar plays on the
+    /// device Sonar passes it to, so a kept-awake home theater keeps its noise with the Sonar profile on.</summary>
     public HashSet<string> UsedOutputDevices() =>
-        OutputChannels.Select(EffectiveDeviceId).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        OutputChannels.Select(c => SonarOutputId(c) ?? EffectiveDeviceId(c)).OfType<string>()
+                      .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Kept-awake devices that a channel is using; only these get the noise.</summary>
     public Dictionary<string, double> ActiveKeepAwake()
@@ -526,6 +598,63 @@ public sealed class ChannelManager : IDisposable
     /// or when Sonar can't be reached).</summary>
     public string? SonarOutputId(Channel channel) =>
         _sonarRunning && IsThroughSonar(channel) && _sonarState?.Outputs.TryGetValue(SonarChannelId(channel), out var id) == true ? id : null;
+
+    /// <summary>Sonar leaves a channel's device blank until it has played something since it started (after every
+    /// restart of the PC, say), though it plays on it all along. Fills a blank with the device Sonar plays on (the
+    /// stand-in, if there is one, else the one you chose), and remembers each device it reports, except the stand-in.</summary>
+    private SonarState RememberSonarOutputs(SonarState sonar)
+    {
+        var outputs = new Dictionary<string, string>(sonar.Outputs, StringComparer.OrdinalIgnoreCase);
+        bool changed = false;
+        foreach (var channel in OutputChannels)
+        {
+            var settings = _config.Channels[channel];
+            string id = SonarChannelId(channel);
+            if (outputs.TryGetValue(id, out var device))
+            {
+                if (string.Equals(device, settings.SonarStandInId, StringComparison.OrdinalIgnoreCase)) continue;
+                // Changed in SteelSeries GG: that's your choice now.
+                changed |= !string.Equals(settings.SonarOutputId, device, StringComparison.OrdinalIgnoreCase) ||
+                           settings.SonarStandInId != null;
+                settings.SonarOutputId = device;
+                settings.SonarStandInId = null;
+            }
+            else if ((settings.SonarStandInId ?? settings.SonarOutputId) is { } known) outputs[id] = known;
+        }
+        if (changed) Save();
+        return sonar with { Outputs = outputs };
+    }
+
+    /// <summary>
+    /// When the device Sonar plays a channel on is disconnected, Sonar's device goes blank and the channel goes silent.
+    /// Has Sonar play it on the headset instead (else the home theater, else any real device), and back on your
+    /// device once it's connected again.
+    /// </summary>
+    private void KeepSonarOnConnectedDevices()
+    {
+        if (_sonarState == null) return;
+        var choices = ProfileChoices();
+        bool Connected(string? id) => id != null && choices.Any(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var channel in OutputChannels.Where(c => !IsSwitching(c)))
+        {
+            var settings = _config.Channels[channel];
+            // Nothing known yet (Sonar hasn't played since this version first ran): leave Sonar alone.
+            if (settings.SonarOutputId is not { } chosen || SonarOutputId(channel) is not { } playing) continue;
+
+            if (Connected(chosen))
+            {
+                if (settings.SonarStandInId != null && !string.Equals(playing, chosen, StringComparison.OrdinalIgnoreCase))
+                    SetSonarOutput(channel, chosen);
+                else if (settings.SonarStandInId != null) { settings.SonarStandInId = null; Save(); }
+            }
+            else if (!Connected(playing) &&
+                     (ProfileDeviceId(Profile.Headset) ?? ProfileDeviceId(Profile.HomeTheater) ?? choices.FirstOrDefault()?.Id) is { } standIn)
+            {
+                SetSonarOutput(channel, standIn, isStandIn: true);
+            }
+        }
+    }
 
     /// <summary>The Sonar preset selected for this channel, while it goes through Sonar.</summary>
     public SonarPreset? SelectedSonarPreset(Channel channel) =>
@@ -670,8 +799,14 @@ public sealed class ChannelManager : IDisposable
         else SetSonarOutput(channel, deviceId);
     }
 
-    private async void SetSonarOutput(Channel channel, string deviceId)
+    /// <summary>Has Sonar play the channel on <paramref name="deviceId"/>: your choice, or a stand-in for your choice
+    /// while it's disconnected.</summary>
+    private async void SetSonarOutput(Channel channel, string deviceId, bool isStandIn = false)
     {
+        var settings = _config.Channels[channel];
+        if (!isStandIn) settings.SonarOutputId = deviceId;
+        settings.SonarStandInId = isStandIn ? deviceId : null;
+        Save();
         _switching[channel] = _switching.GetValueOrDefault(channel) + 1;
         _sonarWrites++;
         StateChanged?.Invoke();
@@ -691,6 +826,7 @@ public sealed class ChannelManager : IDisposable
         catch (Exception ex)
         {
             LastError = $"Couldn't change Sonar's {channel} device: {ex.Message}";
+            if (isStandIn) settings.SonarStandInId = null; // try again on the next scan
         }
         finally
         {
@@ -957,6 +1093,7 @@ public sealed class ChannelManager : IDisposable
 
     private void Publish(List<MixerApp> apps, string? error, SonarState? sonar, bool notify)
     {
+        if (sonar != null) sonar = RememberSonarOutputs(sonar);
         _sonarState = sonar;
         var pids = apps.SelectMany(a => a.ProcessIds).ToHashSet();
         var newPids = pids.Where(p => !_knownPids.Contains(p)).ToHashSet();
@@ -994,6 +1131,7 @@ public sealed class ChannelManager : IDisposable
         _signature = signature;
         if (changed || notify) StateChanged?.Invoke();
         ApplyPresetLinks();
+        KeepSonarOnConnectedDevices();
     }
 
     /// <summary>Routes the app to <paramref name="desired"/> (null = Windows default) if anything moved it.</summary>

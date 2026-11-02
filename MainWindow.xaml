@@ -549,6 +549,88 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem x:Name="ShortcutsTab" Header="Shortcuts">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,4,0">
+                    <StackPanel>
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource SecondaryText}"
+                                   Text="Shortcuts work everywhere, also in games and while AudioDesk is in the tray. Click a box and press the keys: Ctrl, Alt or Win with any key, or F13 to F24 on their own. Esc cancels." />
+
+                        <Border Padding="16,12" Margin="0,12,0,0" CornerRadius="8" BorderThickness="1"
+                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Volume step" FontSize="14" FontWeight="SemiBold" />
+                                        <TextBlock Text="How much Volume up and Volume down change a channel's volume. Hold the keys to keep going."
+                                                   TextWrapping="Wrap" Margin="0,2,0,0" Style="{StaticResource SecondaryText}" />
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="1" Width="100" Margin="16,0,0,0" VerticalAlignment="Center"
+                                              AutomationProperties.Name="Volume step"
+                                              ItemsSource="{Binding Shortcuts.VolumeSteps}" DisplayMemberPath="Label" SelectedValuePath="Percent"
+                                              SelectedValue="{Binding Shortcuts.VolumeStep, Mode=TwoWay}" />
+                                </Grid>
+                                <CheckBox Margin="0,12,0,0" IsChecked="{Binding Shortcuts.Notifications, Mode=TwoWay}"
+                                          Content="Show a notification when a shortcut switches a device, a profile or Sonar while the window is closed" />
+                            </StackPanel>
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding Shortcuts.Groups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Margin="0,20,0,8" />
+                                        <Border CornerRadius="8" BorderThickness="1" Padding="0,4"
+                                                Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="16,6">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="32" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding Label}" FontSize="14" />
+                                                                <TextBlock Text="{Binding Description}" FontSize="12" TextWrapping="Wrap" Margin="0,1,0,0"
+                                                                           Style="{StaticResource SecondaryText}" />
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Message}" FontSize="12" MaxWidth="220" TextWrapping="Wrap"
+                                                                       VerticalAlignment="Center" Margin="12,0,0,0" TextAlignment="Right"
+                                                                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                                       Visibility="{Binding HasMessage, Converter={StaticResource BoolToVisibility}}" />
+                                                            <ToggleButton Grid.Column="2" MinWidth="170" Margin="12,0,0,0" Padding="12,5" VerticalAlignment="Center"
+                                                                          Content="{Binding Keys}" IsChecked="{Binding IsRecording, Mode=TwoWay}"
+                                                                          AutomationProperties.Name="{Binding AutomationName}"
+                                                                          ToolTip="Click, then press the keys for this shortcut."
+                                                                          Checked="ShortcutBox_Checked" PreviewKeyDown="ShortcutBox_PreviewKeyDown"
+                                                                          PreviewKeyUp="ShortcutBox_PreviewKeyUp" LostKeyboardFocus="ShortcutBox_LostKeyboardFocus" />
+                                                            <Button Grid.Column="3" Width="28" Height="28" Padding="0" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                                    Background="Transparent" BorderThickness="0" ToolTip="Remove this shortcut"
+                                                                    AutomationProperties.Name="Remove shortcut" Click="ShortcutClear_Click"
+                                                                    Visibility="{Binding IsSet, Converter={StaticResource BoolToVisibility}}">
+                                                                <TextBlock Text="&#xE711;" FontFamily="{StaticResource IconFont}" FontSize="12" />
+                                                            </Button>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </Border>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem x:Name="SettingsTab" Header="Settings">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,12,4,0">
                     <StackPanel>

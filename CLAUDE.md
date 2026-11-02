@@ -28,7 +28,10 @@ A running AudioDesk locks its files: `AudioDesk.exe --exit` closes it (and waits
   `MeterService`, `KeepAwakeService`, `AudioEffects`.
 - `LocalApi.cs`: named pipe `AudioDesk.Api` (JSON lines), used by Knob Hub's AudioDesk app. Started and stopped by the
   **Knob support** setting (`MixerConfig.LocalApiEnabled`).
-- `ViewModels.cs`, `MainWindow.xaml(.cs)`: Mixer, Devices and Settings tabs, under its own title bar (`WindowChrome`,
+- `Shortcuts.cs`: global keyboard shortcuts (`RegisterHotKey` on a message-only window), saved in
+  `MixerConfig.Shortcuts` as action id → keys ("Ctrl+Alt+Up"). Actions call the same `ChannelManager` methods as the
+  window. Paused while a shortcut is being typed in the Shortcuts tab.
+- `ViewModels.cs`, `MainWindow.xaml(.cs)`: Mixer, Devices, Shortcuts and Settings tabs, under its own title bar (`WindowChrome`,
   like Knob Hub's; fixed size, so only Minimize and Close). `TrayIcon.cs`, `App.xaml.cs` (startup,
   single instance, `--selftest`), `Updates/UpdateService.cs` (GitHub releases, verified MSI download).
 

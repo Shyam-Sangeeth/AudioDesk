@@ -28,6 +28,7 @@
   - [Through Sonar (SteelSeries Sonar)](#through-sonar-steelseries-sonar)
   - [Keep device awake](#keep-device-awake)
   - [Devices tab](#devices-tab)
+  - [Shortcuts tab](#shortcuts-tab)
   - [Tray icon](#tray-icon)
   - [Settings tab](#settings-tab)
 - [Voice chat and the microphone](#voice-chat-and-the-microphone)
@@ -83,6 +84,8 @@ of its own.
 - **Keep device awake:** plays inaudible noise to a receiver or soundbar so it never sleeps and doesn't cut off
   the start of sounds after a pause.
 - **Tray icon:** pick devices and profiles from the tray; AudioDesk keeps working with the window closed.
+- **Keyboard shortcuts:** switch profiles and Sonar, change a channel's volume, mute it, move it to the next device
+  or send it through Sonar, from anywhere, even in a game.
 - **Self-healing routing:** new apps are sorted into their channel automatically, and if anything moves an
   app (Windows, another mixer, the app itself), AudioDesk puts it back.
 - **Never freezes:** device switches run in the background and show a loader.
@@ -167,6 +170,7 @@ In each card:
 **When a device disappears** (unplugged, or Sonar closed), Media and Aux keep working: the channel temporarily
 uses the device it used before Sonar, otherwise your headset, otherwise Game's device. The card says *Saved device
 is unavailable, using this one for now*, and the channel goes back to the saved device by itself when it returns.
+Channels that go through Sonar get a stand-in device too: see [Through Sonar](#through-sonar-steelseries-sonar).
 
 ### Moving apps between channels
 
@@ -238,6 +242,11 @@ While a channel goes through Sonar, its device picker shows the real device **So
 picking another device changes it in Sonar too (the same as choosing the output in SteelSeries GG). The tray menu
 does the same. Changes made in SteelSeries GG show up in AudioDesk within a couple of seconds.
 
+If the device Sonar plays a channel on is unplugged, Sonar is left with no device and the channel goes silent.
+AudioDesk then has Sonar play the channel on your headset, or on your home theater if the headset isn't connected
+either (the devices the [profiles](#profiles-sonar-headset-and-home-theater) use). When your device is plugged in
+again, Sonar goes back to it.
+
 A **preset** picker also appears under the format line, listing the presets you've marked as **favourites** in
 Sonar (in Sonar's order), plus the selected one if it isn't a favourite. Picking one selects it in Sonar. New
 favourites show up within about 30 seconds.
@@ -278,15 +287,19 @@ When sound starts again they need a moment to lock back on, so the first second 
 pause a video for a while and press play.
 
 **Keep device awake** fixes this by playing very quiet white noise to the device whenever nothing else is
-playing, so the signal never stops. While another app plays on the device its audio keeps the receiver awake, so
-the noise pauses; it resumes within about half a second of the device going quiet. Turn it on with the
+playing, so the signal never stops. While another app plays sound on the device its audio keeps the receiver
+awake, so the noise pauses; it resumes once the device has been quiet for about a second. An app that keeps its
+audio open but silent (SteelSeries Sonar does this all the time, and many games do while paused) doesn't stop the
+noise. Turn it on with the
 **Keep awake** checkbox on the [Devices tab](#devices-tab), and pick the level next to it.
 
 A small green wave (∿) after the device's format shows when the noise is actually playing, on the channels that
 use the device and on the Devices tab.
 
-The noise only plays while a channel (Game, Media or Aux) is using the device. With the Headset profile
-active, a kept-awake home theater gets no noise; switch to Home Theater and it starts automatically. While it's
+The noise only plays while a channel (Game, Media or Aux) is using the device. A channel that goes through
+Sonar counts as using the device Sonar plays it on, so a kept-awake home theater stays awake with Sonar on too. With
+the Headset profile active, a kept-awake home theater gets no noise; switch to Home Theater and it starts
+automatically. While it's
 waiting, the device's card says *Keep awake is paused: no channel uses this device*.
 
 | Level | Use |
@@ -310,6 +323,31 @@ waiting, the device's card says *Keep awake is paused: no channel uses this devi
 All active real playback devices with their real format (virtual devices such as Sonar's aren't listed).
 **Default** marks the Windows default device. Use **Make default** to change it, and **Keep awake** to
 [keep a playback device awake](#keep-device-awake).
+
+### Shortcuts tab
+
+![Shortcuts](docs/screenshots/shortcuts.png)
+
+Keyboard shortcuts that work everywhere: in games, in other apps, and while AudioDesk is in the tray. None are set
+at first. Click an action's box and press the keys you want: Ctrl, Alt or Win with any key (Shift can be added), or
+F13 to F24 on their own. **Esc** cancels, and **✕** removes a shortcut. Keys belong to one action, so giving them to
+another action moves them.
+
+| Group | Actions |
+|---|---|
+| **Profiles** | **Sonar**, **Headset**, **Home Theater**: the same as the [profile buttons](#profiles-sonar-headset-and-home-theater) (Sonar turns every channel's Sonar on, or off again). |
+| **Game**, **Media**, **Aux** | **Volume up** and **Volume down** (hold the keys to keep going), **Mute or unmute**, **Next device** and **Through Sonar on or off**. |
+
+- **Next device** moves the channel to the next real playback device in turn. While the channel goes through Sonar, it
+  changes the device Sonar plays the channel on instead, like the channel's device picker.
+- **Volume step** sets how much a volume shortcut changes the volume: 1, 2, 5 (the default) or 10%. Volume moves to
+  the next whole step, and Volume up unmutes. While the channel goes through Sonar, the shortcut moves Sonar's slider.
+- A shortcut takes its keys from every other app, so choose keys your games and apps don't use.
+- If another app or Windows already uses the keys, the action says so in yellow and the shortcut doesn't work: pick
+  other keys.
+- What a shortcut did shows in the status line while the window is open. With the window closed, switching a device,
+  a profile or Sonar shows a notification (turn that off with the checkbox at the top); volume and mute don't, since
+  you hear them. Problems are always shown.
 
 ### Tray icon
 
@@ -374,7 +412,8 @@ Settings are saved to:
 
 It contains the channel devices (and the device each goes back to after Sonar), volumes and mute states, the Sonar
 preset linked to each device, which channel each app belongs to (by process name), profile devices, the
-kept-awake devices with their noise levels, whether to check for updates and whether knob support is on. It's plain JSON. To start over, quit
+kept-awake devices with their noise levels, keyboard shortcuts and their options, whether to check for updates
+and whether knob support is on. It's plain JSON. To start over, quit
 AudioDesk and delete the file.
 
 Windows also remembers per-app device choices itself. To clear those: *Settings → System → Sound → Volume
@@ -419,6 +458,8 @@ The full message shapes are in the doc comment of `LocalApi.cs`.
 | Tray icon missing | It's in the hidden-icons area (**^**). Drag it onto the taskbar. |
 | The installer says an earlier AudioDesk is installed for your account | Versions 1.0.0 and 1.0.1 installed per user. Uninstall that copy (Settings → Apps → AudioDesk), then run the installer again. |
 | The knob says AudioDesk isn't running, but it is | Turn on **Knob support** in the Settings tab. |
+| A shortcut does nothing | If the Shortcuts tab says another app or Windows uses the keys, pick other keys. |
+| A key combination stopped working in a game or app | AudioDesk uses it as a shortcut. Give that action other keys in the Shortcuts tab. |
 
 ## Limitations
 
@@ -476,8 +517,9 @@ update check reads the latest release, so that's all it takes for installed copi
 ```
 AudioDesk/
 ├─ App.xaml(.cs)            Startup, single instance, tray, local API, --selftest
-├─ MainWindow.xaml(.cs)     Mixer, Devices and Settings tabs, popups, preset search, drag-and-drop
-├─ ViewModels.cs            Channel and profile view models
+├─ MainWindow.xaml(.cs)     Mixer, Devices, Shortcuts and Settings tabs, popups, preset search, drag-and-drop
+├─ ViewModels.cs            Channel, profile and shortcut view models
+├─ Shortcuts.cs             Keyboard shortcuts: the actions, registering them with Windows, running them
 ├─ TrayIcon.cs              Tray icon and its menu
 ├─ StartupSetting.cs        Start with Windows (per-user Run entry)
 ├─ Updates/UpdateService.cs GitHub release check, verified installer download, runs the installer

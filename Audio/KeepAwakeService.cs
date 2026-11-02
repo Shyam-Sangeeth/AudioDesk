@@ -8,8 +8,10 @@ namespace AudioDesk.Audio;
 /// <summary>
 /// Keeps chosen playback devices awake by playing very quiet white noise to them whenever nothing else is
 /// playing. Receivers and soundbars (especially over optical/HDMI) go to sleep when the signal stops and need
-/// a moment to wake up, which cuts off the start of the next sound. While another app plays on the device
-/// its audio keeps the receiver awake, so the noise pauses and resumes as soon as the device goes quiet.
+/// a moment to wake up, which cuts off the start of the next sound. While another app plays sound you could hear on
+/// the device, that keeps the receiver awake, so the noise pauses, and it resumes once the device has been quiet for
+/// a second. Streams that are open but silent don't count: SteelSeries Sonar keeps one open on the device it plays on
+/// all the time, and games often do too.
 /// </summary>
 public sealed class KeepAwakeService : IDisposable
 {
@@ -31,6 +33,13 @@ public sealed class KeepAwakeService : IDisposable
     /// <summary>Raised on a worker thread when the noise on a device starts (true) or stops/pauses (false).</summary>
     public event Action<string, bool>? NoiseChanged;
 
+    // Checks in a row that found the device quiet before the noise resumes (half a second each), so a short gap in a
+    // game's or a film's sound doesn't switch it on and off.
+    private const int QuietChecksToResume = 2;
+
+    // Peak level above which another app counts as playing: −80 dBFS, the quietest noise level.
+    private const float AudiblePeak = 0.0001f;
+
     private void PauseWhileOthersPlay()
     {
         lock (_lock)
@@ -42,12 +51,13 @@ public sealed class KeepAwakeService : IDisposable
                 try { othersPlaying = OthersPlaying(id); }
                 catch { continue; } // device restarting; check again next time
 
+                player.QuietChecks = othersPlaying ? 0 : player.QuietChecks + 1;
                 if (othersPlaying && !player.IsPaused)
                 {
                     player.Pause();
                     NoiseChanged?.Invoke(id, false);
                 }
-                else if (!othersPlaying && player.IsPaused)
+                else if (player.IsPaused && player.QuietChecks >= QuietChecksToResume)
                 {
                     player.Resume();
                     NoiseChanged?.Invoke(id, true);
@@ -56,7 +66,8 @@ public sealed class KeepAwakeService : IDisposable
         }
     }
 
-    /// <summary>True when any app other than AudioDesk has an active stream on the device.</summary>
+    /// <summary>True when an app other than AudioDesk is playing sound on the device that's loud enough to hear (an
+    /// open but silent stream doesn't count).</summary>
     private static bool OthersPlaying(string deviceId)
     {
         using var enumerator = new MMDeviceEnumerator();
@@ -66,7 +77,8 @@ public sealed class KeepAwakeService : IDisposable
         for (int i = 0; i < sessions.Count; i++)
         {
             var session = sessions[i];
-            if (session.GetProcessID != self && session.State == AudioSessionState.AudioSessionStateActive)
+            if (session.GetProcessID != self && session.State == AudioSessionState.AudioSessionStateActive &&
+                session.AudioMeterInformation.MasterPeakValue > AudiblePeak)
                 return true;
         }
         return false;
@@ -163,6 +175,9 @@ public sealed class KeepAwakeService : IDisposable
 
         /// <summary>Paused because another app is playing on the device.</summary>
         public bool IsPaused { get; private set; }
+
+        /// <summary>How many checks in a row found the device quiet.</summary>
+        public int QuietChecks { get; set; }
 
         public float Amplitude
         {

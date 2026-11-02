@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
@@ -790,7 +790,8 @@ public sealed class ChannelViewModel : ObservableObject
             OnPropertyChanged(nameof(DeviceName));
             IsSwitching = _mixer.IsSwitching(Channel);
             IsUsingFallback = _mixer.IsUsingFallback(Channel);
-            IsKeepAwakePlaying = _mixer.IsKeepAwakePlaying(_mixer.DeviceId(Channel));
+            // Through Sonar, the noise plays on the real device Sonar passes the channel to.
+            IsKeepAwakePlaying = _mixer.IsKeepAwakePlaying(_mixer.PickerDeviceId(Channel));
 
             SonarAvailable = _mixer.SonarDeviceId(Channel) != null;
             _throughSonar = _mixer.IsThroughSonar(Channel);
@@ -822,5 +823,159 @@ public sealed class ChannelViewModel : ObservableObject
         {
             _syncing = false;
         }
+    }
+}
+
+/// <summary>One row of the Shortcuts tab: an action and its keys. Checking the keys box starts listening for new ones.</summary>
+public sealed class ShortcutItem(ShortcutAction action, ShortcutsViewModel owner) : ObservableObject
+{
+    private Shortcut? _shortcut;
+    private bool _recording;
+    private string _held = "";
+    private string? _message;
+
+    public ShortcutAction Action => action;
+    public string Label => action.Label;
+    public string Description => action.Description;
+    public bool IsSet => _shortcut != null;
+    public string AutomationName => $"{action.Group} {action.Label} shortcut";
+
+    public string Keys => _recording ? (_held.Length > 0 ? _held : "Press keys…") : _shortcut?.Display ?? "Not set";
+
+    /// <summary>Why the shortcut doesn't work, or what's wrong with the keys being typed.</summary>
+    public string? Message
+    {
+        get => _message;
+        set
+        {
+            if (value == _message) return;
+            _message = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasMessage));
+        }
+    }
+
+    public bool HasMessage => !string.IsNullOrEmpty(_message);
+
+    public bool IsRecording
+    {
+        get => _recording;
+        set
+        {
+            if (value == _recording) return;
+            _recording = value;
+            _held = "";
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(Keys));
+            owner.RecordingChanged(this);
+        }
+    }
+
+    /// <summary>The modifiers held so far while typing a shortcut ("Ctrl+Alt+").</summary>
+    public void ShowHeld(string held)
+    {
+        _held = held;
+        OnPropertyChanged(nameof(Keys));
+    }
+
+    public void SetShortcut(Shortcut? shortcut)
+    {
+        if (shortcut == _shortcut) return;
+        _shortcut = shortcut;
+        OnPropertyChanged(nameof(IsSet));
+        OnPropertyChanged(nameof(Keys));
+    }
+}
+
+public sealed record ShortcutGroup(string Title, IReadOnlyList<ShortcutItem> Items);
+
+public sealed record VolumeStepChoice(int Percent)
+{
+    public string Label => $"{Percent}%";
+}
+
+/// <summary>The Shortcuts tab: keys for profiles, Sonar and each channel's volume and device.</summary>
+public sealed class ShortcutsViewModel : ObservableObject
+{
+    private readonly ChannelManager _mixer;
+    private readonly ShortcutService _service;
+    private readonly Action<string> _report;
+
+    public IReadOnlyList<ShortcutGroup> Groups { get; }
+    public IReadOnlyList<VolumeStepChoice> VolumeSteps { get; } = ChannelManager.VolumeSteps.Select(p => new VolumeStepChoice(p)).ToList();
+
+    public ShortcutsViewModel(ChannelManager mixer, ShortcutService service, Action<string> report)
+    {
+        _mixer = mixer;
+        _service = service;
+        _report = report;
+        Groups = ShortcutAction.All.GroupBy(a => a.Group)
+            .Select(g => new ShortcutGroup(g.Key, g.Select(a => new ShortcutItem(a, this)).ToList()))
+            .ToList();
+        _service.Changed += Sync;
+        Sync();
+    }
+
+    private IEnumerable<ShortcutItem> Items => Groups.SelectMany(g => g.Items);
+
+    public int VolumeStep
+    {
+        get => _mixer.ShortcutVolumeStep;
+        set => _mixer.ShortcutVolumeStep = value;
+    }
+
+    public bool Notifications
+    {
+        get => _mixer.ShortcutNotifications;
+        set => _mixer.ShortcutNotifications = value;
+    }
+
+    public void Sync()
+    {
+        foreach (var item in Items)
+        {
+            item.SetShortcut(Shortcut.TryParse(_mixer.Shortcuts.GetValueOrDefault(item.Action.Id), out var shortcut) ? shortcut : null);
+            if (!item.IsRecording) item.Message = _service.Error(item.Action.Id);
+        }
+        OnPropertyChanged(nameof(VolumeStep));
+        OnPropertyChanged(nameof(Notifications));
+    }
+
+    /// <summary>One shortcut is typed at a time, and the others are off meanwhile so their keys reach the window.</summary>
+    public void RecordingChanged(ShortcutItem item)
+    {
+        if (item.IsRecording)
+        {
+            foreach (var other in Items.Where(i => i != item && i.IsRecording)) other.IsRecording = false;
+            item.Message = null;
+        }
+        _service.Paused = Items.Any(i => i.IsRecording);
+        if (!item.IsRecording) Sync();
+    }
+
+    /// <summary>Keys typed into a row: saved if they can be a shortcut, otherwise the row says why and keeps listening.</summary>
+    public void Assign(ShortcutItem item, Shortcut shortcut)
+    {
+        if (shortcut.Problem() is { } problem)
+        {
+            item.ShowHeld("");
+            item.Message = problem;
+            return;
+        }
+        item.IsRecording = false;
+        string? taken = _mixer.SetShortcut(item.Action.Id, shortcut.ToString());
+        var from = ShortcutAction.All.FirstOrDefault(a => a.Id == taken);
+        _report(from == null
+            ? $"{shortcut.Display}: {item.Action.FullName}."
+            : $"{shortcut.Display} now does {item.Action.FullName}, not {from.FullName}.");
+        Sync();
+    }
+
+    public void Clear(ShortcutItem item)
+    {
+        item.IsRecording = false;
+        _mixer.SetShortcut(item.Action.Id, null);
+        _report($"{item.Action.FullName} has no shortcut now.");
+        Sync();
     }
 }

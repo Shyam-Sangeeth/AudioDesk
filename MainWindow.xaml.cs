@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,14 +24,16 @@ public partial class MainWindow : Window
     public ObservableCollection<DeviceItem> Outputs { get; } = [];
 
     public UpdateViewModel Updates { get; }
+    public ShortcutsViewModel Shortcuts { get; }
 
-    public MainWindow(AudioService audio, ChannelManager mixer, MeterService meters, UpdateViewModel updates)
+    public MainWindow(AudioService audio, ChannelManager mixer, MeterService meters, UpdateViewModel updates, ShortcutService shortcuts)
     {
         _audio = audio;
         _mixer = mixer;
         _meters = meters;
         Updates = updates;
         Profiles = new ProfilesViewModel(mixer, Report);
+        Shortcuts = new ShortcutsViewModel(mixer, shortcuts, Report);
         InitializeComponent();
         DataContext = this;
 
@@ -147,8 +149,11 @@ public partial class MainWindow : Window
     private string? _lastProblem;
     private DispatcherTimer? _statusTimer;
 
+    /// <summary>The window is open and not minimized, so its status line can be seen.</summary>
+    public bool IsOnScreen => IsVisible && WindowState != WindowState.Minimized;
+
     /// <summary>Shows a message in the status line; it clears itself 5 seconds after the latest message.</summary>
-    private void Report(string message)
+    public void Report(string message)
     {
         StatusText.Text = message;
         if (_statusTimer == null)
@@ -219,6 +224,46 @@ public partial class MainWindow : Window
         {
             Report($"Couldn't move {chip.Name}: {ex.Message}");
         }
+    }
+
+    // --- Shortcuts tab ---
+
+    private void ShortcutBox_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton box) Keyboard.Focus(box);
+    }
+
+    /// <summary>While a row listens, every key goes to it: modifiers show as they're held, the first other key (with
+    /// them) becomes the shortcut, and Esc on its own cancels.</summary>
+    private void ShortcutBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ShortcutItem item } || !item.IsRecording) return;
+        e.Handled = true;
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        var modifiers = Keyboard.Modifiers;
+        if (key == Key.Escape && modifiers == ModifierKeys.None)
+            item.IsRecording = false;
+        else if (Shortcut.IsModifierKey(key) || key is Key.ImeProcessed or Key.DeadCharProcessed)
+            item.ShowHeld(Shortcut.DisplayModifiers(modifiers));
+        else
+            Shortcuts.Assign(item, new Shortcut(modifiers, key));
+    }
+
+    private void ShortcutBox_PreviewKeyUp(object sender, KeyEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ShortcutItem item } || !item.IsRecording) return;
+        e.Handled = true;
+        item.ShowHeld(Shortcut.DisplayModifiers(Keyboard.Modifiers));
+    }
+
+    private void ShortcutBox_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ShortcutItem item }) item.IsRecording = false;
+    }
+
+    private void ShortcutClear_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ShortcutItem item }) Shortcuts.Clear(item);
     }
 
     // --- Settings tab ---
