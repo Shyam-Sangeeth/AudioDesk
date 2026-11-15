@@ -26,7 +26,8 @@ A running AudioDesk locks its files: `AudioDesk.exe --exit` closes it (and waits
 - `Audio/`: `AudioService` (device cache, sessions, formats), `SonarClient` (Sonar's local web server: device, presets,
   volume and mute per Sonar channel), `Interop` (undocumented `IPolicyConfig` / `IAudioPolicyConfigFactory`),
   `MeterService`, `KeepAwakeService`, `AudioEffects`.
-- `LocalApi.cs`: named pipe `AudioDesk.Api` (JSON lines), used by Knob Hub's AudioDesk app. Started and stopped by the
+- `LocalApi.cs`: named pipe `AudioDesk.Api` (JSON lines), used by Knob Hub's AudioDesk app and other apps on the
+  PC. Started and stopped by the
   **Knob support** setting (`MixerConfig.LocalApiEnabled`).
 - `Shortcuts.cs`: global keyboard shortcuts (`RegisterHotKey` on a message-only window), saved in
   `MixerConfig.Shortcuts` as action id → keys ("Ctrl+Alt+Up"). Actions call the same `ChannelManager` methods as the
@@ -42,9 +43,9 @@ A running AudioDesk locks its files: `AudioDesk.exe --exit` closes it (and waits
   freezes before this.
 - **Keep `RenderMode.SoftwareOnly`.** WPF's GPU path draws a blank white window on the development PC.
 - **The local API is a contract** with Knob Hub's AudioDesk app (`KnobHub` repo, `hub/Plugins/AudioDesk`) and with
-  LightDesk's Theater knob app (`LightDesk` repo, `knob-app/theater`: Media's volume, mute, device and Sonar, and the
-  `profiles` devices). Keep it backward compatible, update the doc comment at the top of `LocalApi.cs` and the
-  README's Local API section, and change the plugins with it.
+  other apps on the PC (one relies on Media's volume, mute, device and Sonar, and the `profiles` devices). Keep it
+  backward compatible, update the doc comment at the top of `LocalApi.cs` and the README's Local API section, and
+  change the Knob Hub plugin with it.
 - **Sonar** is reached through GG's local web server (Classic mode only, not an official API). Sonar's own devices are
   chosen with the Sonar button, not the device pickers; `SteelSeriesSonar` and voice apps (`VoiceAppPrefixes`) are
   never listed or routed.

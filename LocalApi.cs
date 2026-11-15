@@ -177,7 +177,7 @@ internal sealed class LocalApi : IDisposable
             },
             ["channels"] = channels,
             // The devices the Headset and Home Theater profiles play on (chosen in AudioDesk, or its best guess), so an
-            // app can send one channel there (LightDesk's Theater knob app sends Media). Null when there's none.
+            // app can send one channel there (e.g. Media to the home theater for a film). Null when there's none.
             ["profiles"] = new JsonObject
             {
                 ["headset"] = _mixer.ProfileDeviceId(Profile.Headset),

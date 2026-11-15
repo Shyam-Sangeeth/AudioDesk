@@ -11,3 +11,5 @@ print("sonar_available", s["sonar_available"], "sonar", s["sonar"], "profile", s
 for c in s["channels"]:
     dev = next((d["name"] for d in c["devices"] if d["id"] == c["device"]), None)
     print(c["id"], "vol", c["volume"], "muted", c["muted"], "through_sonar", c["through_sonar"], "device", dev, "|", len(c["devices"]), "devices")
+# Since 1.0.6: the devices the Headset and Home Theater profiles play on (ids; absent from older versions).
+print("profiles", s.get("profiles"))
