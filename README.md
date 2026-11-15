@@ -437,7 +437,8 @@ user can open, with one JSON object per line each way. It runs while **Knob supp
 
 - **State:** AudioDesk sends a `state` message when a client connects and whenever something changes: Sonar
   available/on, the active profile, and for each channel (game, media, aux) its volume (0-1), mute, whether it goes
-  through Sonar, whether it is switching, its device and the devices it can pick.
+  through Sonar, whether it is switching, its device and the devices it can pick; and the device the Headset and
+  the Home Theater profiles play on (`profiles`, since 1.0.6), so an app can send one channel there.
 - **Commands:** `volume` {channel, value}, `mute` {channel, muted}, `device` {channel, id}, `sonar` {on} (every
   channel), `channel_sonar` {channel, on} (one channel), `profile` {profile: "headset" or "home_theater"}. Like the
   window's slider, `volume` and `mute` set Sonar's channel volume while that channel goes through Sonar. A failed

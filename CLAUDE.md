@@ -41,9 +41,10 @@ A running AudioDesk locks its files: `AudioDesk.exe --exit` closes it (and waits
   (`SwitchInBackground`, `SetDefaultInBackground`, the device cache); the UI reads the cache. The user noticed 2 s
   freezes before this.
 - **Keep `RenderMode.SoftwareOnly`.** WPF's GPU path draws a blank white window on the development PC.
-- **The local API is a contract** with Knob Hub's AudioDesk app (`KnobHub` repo, `hub/Plugins/AudioDesk`). Keep it
-  backward compatible, update the doc comment at the top of `LocalApi.cs` and the README's Local API section, and
-  change the plugin with it.
+- **The local API is a contract** with Knob Hub's AudioDesk app (`KnobHub` repo, `hub/Plugins/AudioDesk`) and with
+  LightDesk's Theater knob app (`LightDesk` repo, `knob-app/theater`: Media's volume, mute, device and Sonar, and the
+  `profiles` devices). Keep it backward compatible, update the doc comment at the top of `LocalApi.cs` and the
+  README's Local API section, and change the plugins with it.
 - **Sonar** is reached through GG's local web server (Classic mode only, not an official API). Sonar's own devices are
   chosen with the Sonar button, not the device pickers; `SteelSeriesSonar` and voice apps (`VoiceAppPrefixes`) are
   never listed or routed.

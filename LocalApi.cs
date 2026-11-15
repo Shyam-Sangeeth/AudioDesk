@@ -13,7 +13,8 @@ namespace AudioDesk;
 /// "AudioDesk.Api", that only the signed-in user can open, with one JSON object per line each way.
 /// <para>AudioDesk sends <c>state</c> when a client connects and whenever something changes:
 /// <c>{t: "state", sonar_available, sonar, profile: "headset" | "home_theater" | null, channels: [{id: "game" | "media" |
-/// "aux", volume (0-1), muted, sonar_available, through_sonar, switching, device, devices: [{id, name, format}]}]}</c>, and
+/// "aux", volume (0-1), muted, sonar_available, through_sonar, switching, device, devices: [{id, name, format}]}],
+/// profiles: {headset, home_theater}}</c> (<c>profiles</c>: the device id each profile plays on, or null; since 1.0.6), and
 /// <c>{t: "error", text}</c> when a command fails.</para>
 /// <para>Commands: <c>{t: "volume", channel, value}</c>, <c>{t: "mute", channel, muted}</c>,
 /// <c>{t: "device", channel, id}</c>, <c>{t: "sonar", on}</c> (every channel), <c>{t: "channel_sonar", channel, on}</c>,
@@ -175,6 +176,13 @@ internal sealed class LocalApi : IDisposable
                 _ => null,
             },
             ["channels"] = channels,
+            // The devices the Headset and Home Theater profiles play on (chosen in AudioDesk, or its best guess), so an
+            // app can send one channel there (LightDesk's Theater knob app sends Media). Null when there's none.
+            ["profiles"] = new JsonObject
+            {
+                ["headset"] = _mixer.ProfileDeviceId(Profile.Headset),
+                ["home_theater"] = _mixer.ProfileDeviceId(Profile.HomeTheater),
+            },
         }.ToJsonString();
     }
 
